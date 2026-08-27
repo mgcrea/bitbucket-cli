@@ -1,0 +1,5 @@
+allowBuilds:
+  # Transitive dependency of vite/vitest; its postinstall fetches the platform binary.
+  esbuild: true
+  # Its postinstall only copies a browser service worker. We use msw/node only.
+  msw: false

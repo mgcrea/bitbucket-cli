@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+.idea/
+.DS_Store
+
+# Local probe credentials — never commit a real Bitbucket token.
+.env
+.env.local
+token.txt

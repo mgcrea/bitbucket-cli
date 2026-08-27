@@ -1,0 +1,45 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1+.
+      - name: Update npm
+        run: npm install -g npm@latest
+      - run: pnpm install --frozen-lockfile
+      - name: Verify tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "Publishing version $pkg"
+      - run: pnpm run lint
+      - run: pnpm run check
+      - run: pnpm run format:check
+      - run: pnpm run spec
+      - run: pnpm run build
+      # Do not set NODE_AUTH_TOKEN — it takes precedence over OIDC and would silently
+      # fall back to token auth.
+      - name: Publish to npm
+        run: npm publish --provenance --access public

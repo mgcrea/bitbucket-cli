@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "promise", "import", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "env": {
+    "node": true,
+    "es2023": true
+  },
+  "rules": {
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "unicorn/prefer-node-protocol": "error",
+    // Commands return a Result<T>; they never print. Everything user-facing goes
+    // through Io, which owns the stdout/stderr split. Keeping this on globally is
+    // the forcing function that stops the output architecture from rotting.
+    "no-console": "error",
+    // Paginating a `next` chain, retry backoff and merge-task polling are all
+    // inherently sequential — parallelising them would be wrong, not faster.
+    "no-await-in-loop": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/output/io.ts", "src/bin/cli.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["test/**/*.ts", "src/**/*.test.ts", "scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "src/generated/"]
+}

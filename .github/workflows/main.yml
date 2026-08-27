@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+    name: Test on node@v${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          check-latest: true
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run check
+      - run: pnpm run format:check
+      - run: pnpm run spec
+      - run: pnpm run build
+      # The bin suite is gated on the artifact existing, so it only runs post-build.
+      # It exists to catch shebang breakage, CJS/ESM interop and bundler-rewritten
+      # dynamic imports — the bug class unit tests structurally cannot see.
+      - run: pnpm run spec

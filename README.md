@@ -71,12 +71,24 @@ bb pr diff 42 --patch | git apply
 bb pipeline list
 ```
 
+Working on a branch:
+
+```bash
+bb pr create --fill               # title and body from your commits
+bb pr checkout 42                 # cross-fork pull requests too
+bb pr review --approve
+bb pr merge --squash --delete-branch
+```
+
+Commands that take a pull-request number default to the one for the current branch,
+so `bb pr merge` usually needs no argument.
+
 ## Commands
 
 | | |
 |---|---|
 | `bb auth` | `login` · `logout` · `status` |
-| `bb pr` | `list` · `view` · `diff` |
+| `bb pr` | `list` · `view` · `diff` · `create` · `checkout` · `merge` · `close` · `ready` · `review` · `comment` |
 | `bb repo` | `list` · `view` |
 | `bb workspace` | `list` |
 | `bb pipeline` | `list` · `view` · `log` |
@@ -213,8 +225,8 @@ Only `components.schemas` is generated. The spec under-declares query parameters
 
 ## Not there yet
 
-`pr create` · `pr checkout` · `pr merge` · `pr review` · `repo clone` · `browse` ·
-`completion` · aliases · extensions · OAuth login · Data Center support.
+`repo clone` · `browse` · `completion` · `pr status` · `pipeline run` · aliases ·
+extensions · OAuth login · Data Center support.
 
 The client is designed behind a resource-level flavor interface so Data Center can be
 added without a rewrite, but only Bitbucket Cloud is implemented.

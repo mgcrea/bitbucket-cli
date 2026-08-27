@@ -21,6 +21,9 @@ export type Prompter = {
   select<T extends string>(options: { message: string; options: SelectOption<T>[] }): Promise<T>;
   confirm(options: { message: string; initialValue?: boolean | undefined }): Promise<boolean>;
   note(message: string, title?: string): Promise<void>;
+  /** A line inside clack's gutter, so it does not break the visual flow. */
+  message(text: string): Promise<void>;
+  warn(text: string): Promise<void>;
   intro(message: string): Promise<void>;
   outro(message: string): Promise<void>;
 };
@@ -36,7 +39,7 @@ export const createPrompter = async (): Promise<Prompter> => {
 
   // Every prompt writes to stderr, so `bb ... --json | jq` stays parseable even when a
   // command stops to ask something.
-  const common = { output: process.stderr, input: process.stdin } as const;
+  const common = { output: process.stderr } as const;
 
   const unwrap = <T>(value: T | symbol): T => {
     if (clack.isCancel(value)) {
@@ -103,6 +106,12 @@ export const createPrompter = async (): Promise<Prompter> => {
     },
     async note(message, title) {
       clack.note(message, title, common);
+    },
+    async message(text) {
+      clack.log.message(text, common);
+    },
+    async warn(text) {
+      clack.log.warn(text, common);
     },
     async intro(message) {
       clack.intro(message, common);

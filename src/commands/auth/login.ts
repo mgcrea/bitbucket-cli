@@ -151,13 +151,15 @@ export default defineBbCommand<never>({
 
     await prompt.note(SCOPE_HELP, "Before you start");
 
+    // Routed through the prompter rather than `io` so these lines stay inside clack's
+    // gutter instead of breaking out of the box.
     if (await prompt.confirm({ message: "Open the token page in your browser?" })) {
       const opened = await openBrowser(TOKEN_PAGE);
-      if (!opened) {
-        io.info(`Could not open a browser. Visit: ${TOKEN_PAGE}`);
-      }
+      await (opened
+        ? prompt.message("Opened your browser.")
+        : prompt.warn(`Could not open a browser. Visit:\n${TOKEN_PAGE}`));
     } else {
-      io.info(TOKEN_PAGE);
+      await prompt.message(TOKEN_PAGE);
     }
 
     // A sensible default: the address most people use for Atlassian is the one already
@@ -200,7 +202,7 @@ export default defineBbCommand<never>({
         if (!isAuthFailure(error)) {
           throw error;
         }
-        io.error(error.message);
+        await prompt.warn(error.message);
         if (attempt >= 3) {
           throw new UsageError("Giving up after three attempts.", SCOPE_HELP);
         }

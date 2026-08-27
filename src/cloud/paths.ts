@@ -59,6 +59,19 @@ export const PULL_REQUEST_PATCH = (workspace: string, repository: string, id: nu
 export const PIPELINES = (workspace: string, repository: string): string =>
   `${REPOSITORY(workspace, repository)}/pipelines`;
 
+export const PIPELINE = (workspace: string, repository: string, selector: string): string =>
+  `${PIPELINES(workspace, repository)}/${enc(selector)}`;
+
+export const PIPELINE_STEPS = (workspace: string, repository: string, uuid: string): string =>
+  `${PIPELINE(workspace, repository, uuid)}/steps`;
+
+export const PIPELINE_STEP_LOG = (
+  workspace: string,
+  repository: string,
+  uuid: string,
+  stepUuid: string,
+): string => `${PIPELINE_STEPS(workspace, repository, uuid)}/${enc(stepUuid)}/log`;
+
 /**
  * The next three are not typos.
  *

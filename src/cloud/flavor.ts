@@ -1,6 +1,7 @@
 import type { AuthStrategy } from "../auth/types.js";
 import type { Flavor } from "../flavor/types.js";
 import type { HttpClient } from "../http/http-client.js";
+import { createPipelinesResource } from "./pipelines.js";
 import { createPullRequestsResource } from "./pull-requests.js";
 import { createRepositoriesResource } from "./repositories.js";
 import { createUsersResource } from "./users.js";
@@ -19,4 +20,5 @@ export const createCloudFlavor = (http: HttpClient, auth: AuthStrategy): Flavor 
   repositories: createRepositoriesResource(http),
   users: createUsersResource(http, auth),
   workspaces: createWorkspacesResource(http),
+  pipelines: createPipelinesResource(http),
 });

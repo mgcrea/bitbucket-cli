@@ -154,6 +154,57 @@ export type PollOptions = {
   onPoll?: ((attempt: number) => void) | undefined;
 };
 
+/**
+ * Pipeline state, flattened from Bitbucket's nested discriminated union.
+ *
+ * The wire shape nests the outcome one level down — a finished run is
+ * `{name: "COMPLETED", result: {name: "SUCCESSFUL" | "FAILED" | "STOPPED"}}` — so the
+ * thing anyone actually wants to check is never the top-level `name`. Flattening it
+ * here means `--json status` answers the question directly.
+ *
+ * These were hand-written from live responses: the published OpenAPI spec declares
+ * `pipeline_state` with empty `properties: {}`, so the generated type is unusable.
+ */
+export type PipelineStatus =
+  | "pending"
+  | "in-progress"
+  | "successful"
+  | "failed"
+  | "error"
+  | "stopped"
+  | "unknown";
+
+export type PipelineSummary = {
+  uuid: string;
+  buildNumber: number;
+  status: PipelineStatus;
+  /** The raw `state.name`, e.g. COMPLETED or IN_PROGRESS. */
+  stateName: string;
+  /** Present while running. */
+  stage?: string | undefined;
+  refType?: string | undefined;
+  refName?: string | undefined;
+  /** The custom pipeline that ran, when one was selected. */
+  selector?: string | undefined;
+  commit?: string | undefined;
+  trigger?: string | undefined;
+  creator?: string | undefined;
+  createdAt: string;
+  completedAt?: string | undefined;
+  durationSeconds?: number | undefined;
+  /** Bitbucket's own explanation of a failure. Frequently the whole diagnosis. */
+  errorMessage?: string | undefined;
+  url: string;
+};
+
+export type PipelineStep = {
+  uuid: string;
+  name: string;
+  status: PipelineStatus;
+  durationSeconds?: number | undefined;
+  errorMessage?: string | undefined;
+};
+
 export type CommitStatusState = "SUCCESSFUL" | "FAILED" | "INPROGRESS" | "STOPPED";
 
 export type CommitStatus = {

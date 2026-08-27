@@ -1,12 +1,21 @@
 import { createApiTokenAuth } from "../../auth/api-token.js";
+import { openBrowser } from "../../browser.js";
 import { createBitbucketClient } from "../../client/bitbucket-client.js";
 import { defineBbCommand } from "../../command.js";
 import { writeCredential } from "../../config/hosts.js";
 import { UsageError } from "../../errors.js";
+import type { UserRef } from "../../flavor/domain.js";
+import { tryGit } from "../../git/exec.js";
 import { AuthenticationError, AuthorizationError } from "../../http/errors.js";
+import { createPrompter } from "../../prompt/index.js";
 import { getRuntime } from "../../runtime.js";
 
 const TOKEN_PAGE = "https://id.atlassian.com/manage-profile/security/api-tokens";
+
+const SCOPE_HELP =
+  "Bitbucket needs an API token that carries Bitbucket scopes.\n" +
+  'Use "Create API token with scopes" and pick Bitbucket as the app —\n' +
+  "a plain unscoped Atlassian token is rejected.";
 
 const readStdin = async (): Promise<string> => {
   const chunks: Buffer[] = [];
@@ -16,18 +25,34 @@ const readStdin = async (): Promise<string> => {
   return Buffer.concat(chunks).toString("utf8").trim();
 };
 
+type Verified = { user: UserRef; transport: "basic" | "bearer" };
+
+/**
+ * Confirms a credential before storing it.
+ *
+ * Uses `current()` rather than `whoami()` on purpose: whoami degrades a 401 into a
+ * described identity, and here Bitbucket's own message is the whole diagnosis — an
+ * unscoped token answers Basic with "API Token provided has no Bitbucket scopes".
+ */
+const verify = async (token: string, email: string | undefined): Promise<Verified> => {
+  const transport = email === undefined ? "bearer" : "basic";
+  const auth = createApiTokenAuth({ token, email, transport });
+  const user = await createBitbucketClient({ auth }).users.current();
+  return { user, transport };
+};
+
+const isAuthFailure = (error: unknown): error is AuthenticationError | AuthorizationError =>
+  error instanceof AuthenticationError || error instanceof AuthorizationError;
+
 export default defineBbCommand<never>({
   meta: { name: "login", description: "Authenticate with Bitbucket" },
   args: {
-    "with-token": { type: "boolean", description: "Read the token from stdin" },
+    "with-token": { type: "boolean", description: "Read the token from stdin, without prompting" },
     email: { type: "string", alias: "e", description: "Your Atlassian account email" },
     "token-type": { type: "string", description: "api-token (default) or access-token" },
     web: { type: "boolean", description: "Not yet implemented" },
   },
-  examples: [
-    "bb auth login --with-token < token.txt",
-    "bb auth login --with-token --email me@example.com < token.txt",
-  ],
+  examples: ["bb auth login", "bb auth login --with-token --email me@example.com < token.txt"],
   async run({ args }) {
     const { io } = getRuntime();
 
@@ -39,84 +64,150 @@ export default defineBbCommand<never>({
     }
 
     if (args["web"] === true) {
-      // Being explicit is better than a half-working flow: Bitbucket has no
-      // device-code grant, and loopback OAuth needs a registered consumer.
       throw new UsageError(
         "`--web` is not implemented yet.",
-        `Create an API token at ${TOKEN_PAGE} (choose Bitbucket as the app), then run:\n` +
-          "  bb auth login --with-token < token.txt",
+        `Run \`bb auth login\` and paste a token from ${TOKEN_PAGE} instead.`,
       );
     }
 
-    if (args["with-token"] !== true) {
-      throw new UsageError(
-        "Pass --with-token and pipe the token in on stdin.",
-        `Create one at ${TOKEN_PAGE} — you must select "Bitbucket" as the app, because a\n` +
-          "  plain unscoped Atlassian token is rejected by the Bitbucket API.",
-      );
+    const flagEmail = args["email"] as string | undefined;
+    const flagKind = args["token-type"] === "access-token" ? "access-token" : "api-token";
+
+    // ---- Non-interactive: stdin, no prompting. This path must never block. --------
+    if (args["with-token"] === true || !io.isInteractive) {
+      if (args["with-token"] !== true) {
+        throw new UsageError(
+          "Cannot prompt for a token because this is not an interactive terminal.",
+          "Pipe it in instead:  bb auth login --with-token --email you@example.com < token.txt",
+        );
+      }
+      const token = await readStdin();
+      if (token === "") {
+        throw new UsageError("No token received on stdin.");
+      }
+
+      if (flagKind === "access-token") {
+        await writeCredential({ kind: flagKind, token });
+        io.info("Stored a resource access token.");
+        io.info("Note: access tokens have no user identity, so `bb pr status` will not work.");
+        return { kind: "none" };
+      }
+
+      const verified = await verify(token, flagEmail).catch((error: unknown) => {
+        if (!isAuthFailure(error)) {
+          throw error;
+        }
+        const hint =
+          flagEmail === undefined
+            ? `${SCOPE_HELP}\n\n  Re-run with --email to get the exact reason: Bitbucket answers Basic\n  auth with a specific message and Bearer with a generic one.`
+            : SCOPE_HELP;
+        throw new UsageError(error.message, hint);
+      });
+
+      await writeCredential({
+        kind: flagKind,
+        token,
+        email: flagEmail,
+        username: verified.user.username,
+        uuid: verified.user.uuid,
+      });
+      io.info(`Logged in as ${verified.user.displayName}.`);
+      return { kind: "none" };
     }
 
-    // stdin only, never argv: a token in argv leaks to `ps`, shell history and CI logs.
-    const token = await readStdin();
-    if (token === "") {
-      throw new UsageError("No token received on stdin.");
-    }
+    // ---- Interactive ------------------------------------------------------------
+    const prompt = await createPrompter();
+    await prompt.intro("Log in to Bitbucket");
 
-    const kind = args["token-type"] === "access-token" ? "access-token" : "api-token";
-    const email = args["email"] as string | undefined;
+    const kind =
+      (args["token-type"] as string | undefined) === undefined
+        ? await prompt.select({
+            message: "How do you want to authenticate?",
+            options: [
+              {
+                value: "api-token" as const,
+                label: "Atlassian API token",
+                hint: "for your own account — the usual choice",
+              },
+              {
+                value: "access-token" as const,
+                label: "Repository or workspace access token",
+                hint: "for CI — no user identity",
+              },
+            ],
+          })
+        : flagKind;
 
     if (kind === "access-token") {
-      await writeCredential({ kind, token });
-      io.info("Stored a resource access token.");
+      const token = await prompt.password({
+        message: "Paste the access token",
+        validate: (value) => (value.trim() === "" ? "A token is required" : undefined),
+      });
+      await writeCredential({ kind, token: token.trim() });
+      await prompt.outro("Stored a resource access token.");
       io.info("Note: access tokens have no user identity, so `bb pr status` will not work.");
       return { kind: "none" };
     }
 
-    // Basic is preferred whenever an email is available, and not only for
-    // compatibility: Bitbucket returns a far more specific failure for it. An unscoped
-    // token answers Basic with "API Token provided has no Bitbucket scopes", where
-    // Bearer only says "invalid, expired, or not supported for this endpoint".
-    const transport = email === undefined ? "bearer" : "basic";
-    const auth = createApiTokenAuth({ token, email, transport });
+    await prompt.note(SCOPE_HELP, "Before you start");
 
-    // Deliberately `current()` rather than `whoami()`: whoami degrades a 401 into a
-    // described identity, which would swallow the API's own explanation of what is
-    // wrong with the token. Here that explanation is the whole value.
-    const user = await createBitbucketClient({ auth })
-      .users.current()
-      .catch((error: unknown) => {
-        if (!(error instanceof AuthenticationError || error instanceof AuthorizationError)) {
-          throw error;
-        }
-        const hints = [
-          "Bitbucket requires an API token that carries Bitbucket scopes. A plain",
-          `  unscoped Atlassian token is rejected. Create one at ${TOKEN_PAGE} using`,
-          '  "Create API token with scopes" and select Bitbucket as the app.',
-        ];
-        if (transport === "bearer") {
-          hints.push(
-            "",
-            "  Re-running with --email <your-atlassian-email> will report the exact reason:",
-            "  Bitbucket answers Basic auth with a specific message and Bearer with a generic one.",
-          );
-        }
-        throw new UsageError(error.message, hints.join("\n"));
+    if (await prompt.confirm({ message: "Open the token page in your browser?" })) {
+      const opened = await openBrowser(TOKEN_PAGE);
+      if (!opened) {
+        io.info(`Could not open a browser. Visit: ${TOKEN_PAGE}`);
+      }
+    } else {
+      io.info(TOKEN_PAGE);
+    }
+
+    // A sensible default: the address most people use for Atlassian is the one already
+    // configured in git.
+    const gitEmail = await tryGit(["config", "--get", "user.email"]);
+
+    // Retry in place rather than making the user re-run the whole command; a rejected
+    // token is usually the wrong one pasted, or the unscoped variety.
+    for (let attempt = 1; ; attempt += 1) {
+      const email =
+        flagEmail ??
+        (await prompt.text({
+          message: "Atlassian account email",
+          // Offered as a default rather than prefilled text, so accepting it is one
+          // keystroke and replacing it does not mean deleting it first.
+          ...(gitEmail === undefined || gitEmail === ""
+            ? { placeholder: "you@example.com" }
+            : { defaultValue: gitEmail, placeholder: gitEmail }),
+          validate: (value) =>
+            value.includes("@") ? undefined : "That does not look like an email address",
+        }));
+
+      const token = await prompt.password({
+        message: "Paste your API token",
+        validate: (value) => (value.trim() === "" ? "A token is required" : undefined),
       });
 
-    // Persist the Bitbucket username alongside the email. REST authenticates as the
-    // email while git over HTTPS wants the username, and conflating them produces a
-    // 403 on push that looks nothing like an auth-setup mistake.
-    await writeCredential({
-      kind,
-      token,
-      email,
-      // The git-over-HTTPS username specifically, not the display name or nickname:
-      // those contain spaces and would produce an unusable clone URL.
-      username: user.username,
-      uuid: user.uuid,
-    });
-
-    io.info(`Logged in as ${user.displayName}.`);
-    return { kind: "none" };
+      try {
+        const verified = await verify(token.trim(), email);
+        await writeCredential({
+          kind: "api-token",
+          token: token.trim(),
+          email,
+          username: verified.user.username,
+          uuid: verified.user.uuid,
+        });
+        await prompt.outro(`Logged in as ${verified.user.displayName}.`);
+        return { kind: "none" };
+      } catch (error) {
+        if (!isAuthFailure(error)) {
+          throw error;
+        }
+        io.error(error.message);
+        if (attempt >= 3) {
+          throw new UsageError("Giving up after three attempts.", SCOPE_HELP);
+        }
+        if (!(await prompt.confirm({ message: "Try again?" }))) {
+          throw new UsageError("Login cancelled.", SCOPE_HELP);
+        }
+      }
+    }
   },
 });

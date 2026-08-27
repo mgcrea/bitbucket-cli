@@ -49,8 +49,16 @@ bb pr view 42
 bb pr diff 42 --patch | git apply
 
 # Repositories
+bb workspace list
 bb repo list --workspace acme
 bb repo view acme/api
+
+# Pipelines
+bb pipeline list                  # newest first
+bb pipeline list --failed
+bb pipeline view                  # the latest run, with its steps
+bb pipeline view 276
+bb pipeline log 276 --step 2
 
 # Any endpoint at all
 bb api /repositories/{workspace}/{repo}/pullrequests --paginate --flatten

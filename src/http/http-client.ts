@@ -246,7 +246,15 @@ export class HttpClient {
         return undefined;
       }
       const parsed: unknown = JSON.parse(text);
-      if (typeof parsed === "object" && parsed !== null && "type" in parsed) {
+      // Accept an envelope carrying either key. Most errors are
+      // `{"type": "error", "error": {...}}`, but several endpoints — the pipeline log
+      // among them — omit `type` and send `{"error": {...}}`. Requiring `type` threw
+      // away the API's own message on exactly those.
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        ("type" in parsed || "error" in parsed)
+      ) {
         return parsed as BitbucketErrorEnvelope;
       }
       return undefined;

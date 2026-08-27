@@ -8,6 +8,9 @@ import type {
   Identity,
   MergeOutcome,
   MergeStrategy,
+  PipelineStatus,
+  PipelineStep,
+  PipelineSummary,
   PullRequest,
   PullRequestRef,
   PullRequestState,
@@ -128,6 +131,24 @@ export type RepositoriesResource = {
   defaultBranch(ref: RepoRef): Promise<string>;
 };
 
+export type ListPipelinesOptions = RepoRef &
+  PaginateOptions & {
+    /** Filter to a branch or tag name. */
+    ref?: string | undefined;
+    /** Filter by outcome, e.g. only failures. */
+    status?: readonly PipelineStatus[] | undefined;
+    sort?: string | undefined;
+  };
+
+export type PipelinesResource = {
+  list(options: ListPipelinesOptions): AsyncIterable<PipelineSummary>;
+  /** Accepts a build number or a pipeline UUID. */
+  get(ref: RepoRef, selector: number | string): Promise<PipelineSummary>;
+  steps(ref: RepoRef, uuid: string, options?: PaginateOptions): AsyncIterable<PipelineStep>;
+  /** Plain text, not JSON. */
+  log(ref: RepoRef, uuid: string, stepUuid: string): Promise<string>;
+};
+
 export type WorkspacesResource = {
   list(options?: PaginateOptions): AsyncIterable<WorkspaceSummary>;
 };
@@ -147,4 +168,5 @@ export type Flavor = {
   readonly repositories: RepositoriesResource;
   readonly users: UsersResource;
   readonly workspaces: WorkspacesResource;
+  readonly pipelines: PipelinesResource;
 };

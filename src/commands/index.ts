@@ -18,6 +18,7 @@ export const rootCommand = defineCommand({
     pr: () => import("./pr/index.js").then((module) => module.default),
     repo: () => import("./repo/index.js").then((module) => module.default),
     workspace: () => import("./workspace/index.js").then((module) => module.default),
+    pipeline: () => import("./pipeline/index.js").then((module) => module.default),
     api: () => import("./api.js").then((module) => module.default),
     issue: () => import("./issue.js").then((module) => module.default),
   },

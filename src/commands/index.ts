@@ -1,5 +1,7 @@
 import { defineCommand } from "citty";
 
+import { VERSION } from "../version.js";
+
 /**
  * The command table. Every entry is a lazy import, so `bb pr list` resolves two module
  * factories rather than the whole tree — which is most of why startup stays at the
@@ -8,6 +10,7 @@ import { defineCommand } from "citty";
 export const rootCommand = defineCommand({
   meta: {
     name: "bb",
+    version: VERSION,
     description: "Work with Bitbucket from the command line",
   },
   subCommands: {

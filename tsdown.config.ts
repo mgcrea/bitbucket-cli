@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "tsdown";
+
+const { version } = JSON.parse(readFileSync("./package.json", "utf8")) as { version: string };
 
 export default defineConfig({
   entry: ["src/index.ts", "src/bin/cli.ts"],
@@ -10,12 +13,17 @@ export default defineConfig({
   clean: true,
   // Keeps the output at the stable `dist/bin/cli.cjs` path that `bin` points at.
   hash: false,
-  // citty is ESM-only, so it cannot be `require`d from the CJS bin — it has to be
-  // bundled in. `yaml` is bundled because config is read on nearly every invocation
-  // and an extra module resolution on the startup path is not worth the install saving.
-  //
-  // `jq-wasm` and `@clack/prompts` are deliberately NOT bundled: both are loaded
-  // lazily and jq-wasm resolves its .wasm relative to its own package directory,
-  // which only works if it stays on disk as a real package. See src/output/jq.ts.
-  noExternal: ["citty", "yaml"],
+  // Baked in at build time so the bin never has to locate package.json at runtime,
+  // which is fragile once the file is a symlink on PATH.
+  define: { __BB_VERSION__: JSON.stringify(version) },
+  deps: {
+    // citty is ESM-only and cannot be `require`d from the CJS bin, so bundling it is
+    // required rather than an optimisation. `yaml` is bundled because config is read on
+    // nearly every invocation.
+    //
+    // `jq-wasm` and `@clack/prompts` are deliberately left out: both load lazily, and
+    // jq-wasm resolves its .wasm relative to its own package directory, which only
+    // works while it stays a real package on disk. See src/output/lazy.ts.
+    alwaysBundle: ["citty", "yaml"],
+  },
 });

@@ -123,6 +123,28 @@ pnpm run test     # lint && check && spec && format:check
 pnpm run build
 ```
 
+### Running the working tree as `bb`
+
+```bash
+make install      # build, then symlink dist/bin/cli.cjs onto your PATH
+make link-status  # show where `bb` currently resolves
+make uninstall    # remove the symlink
+```
+
+`pnpm run install:local` does the same thing if you would rather not use make.
+
+The link points at `dist/bin/cli.cjs`, so `pnpm run build` is enough to pick up a
+change — no relink needed. It installs to `$(npm prefix -g)/bin` by default, because
+pnpm's global bin directory is often absent from `PATH` until you run `pnpm setup`.
+Override it if you keep binaries elsewhere:
+
+```bash
+make install BIN_DIR=~/.local/bin
+```
+
+`install` refuses to overwrite anything that is not a symlink, and `uninstall` refuses
+to remove a symlink pointing somewhere other than this checkout.
+
 `pnpm run generate:types` regenerates `src/generated/openapi.ts` from Atlassian's
 published spec. The output is committed so CI never hits the network, and drift is
 checked on a weekly cron rather than in PR CI — an upstream edit should not redden an

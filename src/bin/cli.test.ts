@@ -37,6 +37,13 @@ const run = async (
 };
 
 describe.skipIf(!existsSync(BIN))("bb binary", () => {
+  it("prints its version", async () => {
+    const result = await run(["--version"]);
+    expect(result.code).toBe(0);
+    // Substituted at build time, so this also proves the define reached the bundle.
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
   it("prints help and exits cleanly", async () => {
     const result = await run(["--help"]);
     expect(result.code).toBe(0);

@@ -24,6 +24,14 @@
   },
   "overrides": [
     {
+      // `__BB_VERSION__` is a build-time define substituted by tsdown. The dunder is
+      // the conventional marker for that, and renaming it would obscure the intent.
+      "files": ["src/version.ts"],
+      "rules": {
+        "no-underscore-dangle": "off"
+      }
+    },
+    {
       "files": ["src/output/io.ts", "src/bin/cli.ts"],
       "rules": {
         "no-console": "off"

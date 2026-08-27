@@ -153,4 +153,21 @@ describe("error mapping", () => {
     server.use(http.get(`${BASE}/user`, () => new HttpResponse(null, { status: 401 })));
     await expect(fast().request({ path: "/user" })).rejects.toThrow(AuthenticationError);
   });
+
+  it("preserves the API's own explanation instead of a generic message", async () => {
+    // Bitbucket's message is frequently the entire diagnosis — an unscoped API token
+    // answers with "API Token provided has no Bitbucket scopes", which is far more
+    // useful than anything we could infer. It must survive to the surface.
+    server.use(
+      http.get(`${BASE}/user`, () =>
+        HttpResponse.json(
+          { type: "error", error: { message: "API Token provided has no Bitbucket scopes." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    await expect(fast().request({ path: "/user" })).rejects.toThrow(
+      "API Token provided has no Bitbucket scopes.",
+    );
+  });
 });

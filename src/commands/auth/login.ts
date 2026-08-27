@@ -3,6 +3,7 @@ import { createBitbucketClient } from "../../client/bitbucket-client.js";
 import { defineBbCommand } from "../../command.js";
 import { writeCredential } from "../../config/hosts.js";
 import { UsageError } from "../../errors.js";
+import { AuthenticationError, AuthorizationError } from "../../http/errors.js";
 import { getRuntime } from "../../runtime.js";
 
 const TOKEN_PAGE = "https://id.atlassian.com/manage-profile/security/api-tokens";
@@ -71,19 +72,36 @@ export default defineBbCommand<never>({
       return { kind: "none" };
     }
 
-    const auth = createApiTokenAuth({
-      token,
-      email,
-      transport: email === undefined ? "bearer" : "basic",
-    });
-    const identity = await createBitbucketClient({ auth }).users.whoami();
+    // Basic is preferred whenever an email is available, and not only for
+    // compatibility: Bitbucket returns a far more specific failure for it. An unscoped
+    // token answers Basic with "API Token provided has no Bitbucket scopes", where
+    // Bearer only says "invalid, expired, or not supported for this endpoint".
+    const transport = email === undefined ? "bearer" : "basic";
+    const auth = createApiTokenAuth({ token, email, transport });
 
-    if (identity.kind !== "user") {
-      throw new UsageError(
-        "That token authenticated, but no account could be read from it.",
-        'If it is an Atlassian API token, make sure it was created with "Bitbucket" selected.',
-      );
-    }
+    // Deliberately `current()` rather than `whoami()`: whoami degrades a 401 into a
+    // described identity, which would swallow the API's own explanation of what is
+    // wrong with the token. Here that explanation is the whole value.
+    const user = await createBitbucketClient({ auth })
+      .users.current()
+      .catch((error: unknown) => {
+        if (!(error instanceof AuthenticationError || error instanceof AuthorizationError)) {
+          throw error;
+        }
+        const hints = [
+          "Bitbucket requires an API token that carries Bitbucket scopes. A plain",
+          `  unscoped Atlassian token is rejected. Create one at ${TOKEN_PAGE} using`,
+          '  "Create API token with scopes" and select Bitbucket as the app.',
+        ];
+        if (transport === "bearer") {
+          hints.push(
+            "",
+            "  Re-running with --email <your-atlassian-email> will report the exact reason:",
+            "  Bitbucket answers Basic auth with a specific message and Bearer with a generic one.",
+          );
+        }
+        throw new UsageError(error.message, hints.join("\n"));
+      });
 
     // Persist the Bitbucket username alongside the email. REST authenticates as the
     // email while git over HTTPS wants the username, and conflating them produces a
@@ -92,11 +110,11 @@ export default defineBbCommand<never>({
       kind,
       token,
       email,
-      username: identity.user.nickname,
-      uuid: identity.user.uuid,
+      username: user.nickname,
+      uuid: user.uuid,
     });
 
-    io.info(`Logged in as ${identity.user.displayName}.`);
+    io.info(`Logged in as ${user.displayName}.`);
     return { kind: "none" };
   },
 });

@@ -3,6 +3,7 @@ import type { FieldPreset } from "../fields/presets.js";
 import type { FieldProjection } from "../fields/projection.js";
 import type { PaginateOptions } from "../pagination/paginate.js";
 import type {
+  AddCommentInput,
   CommitStatus,
   CommitSummary,
   Identity,
@@ -12,6 +13,7 @@ import type {
   PipelineStep,
   PipelineSummary,
   PullRequest,
+  PullRequestComment,
   PullRequestRef,
   PullRequestState,
   PullRequestSummary,
@@ -98,6 +100,8 @@ export type PullRequestsResource = {
   setReview(ref: PullRequestRef, decision: ReviewDecision): Promise<void>;
   commits(ref: PullRequestRef, options?: PaginateOptions): AsyncIterable<CommitSummary>;
   statuses(ref: PullRequestRef, options?: PaginateOptions): AsyncIterable<CommitStatus>;
+  comments(ref: PullRequestRef, options?: PaginateOptions): AsyncIterable<PullRequestComment>;
+  addComment(ref: PullRequestRef, input: AddCommentInput): Promise<PullRequestComment>;
   diff(ref: PullRequestRef): Promise<string>;
   patch(ref: PullRequestRef): Promise<string>;
 };

@@ -205,6 +205,25 @@ export type PipelineStep = {
   errorMessage?: string | undefined;
 };
 
+export type PullRequestComment = {
+  id: number;
+  content: string;
+  author: UserRef;
+  createdAt: string;
+  /** Set when the comment is anchored to a line of the diff. */
+  inline?: { path: string; from?: number | undefined; to?: number | undefined } | undefined;
+  parentId?: number | undefined;
+  deleted: boolean;
+};
+
+export type AddCommentInput = {
+  body: string;
+  /** Reply to an existing comment. */
+  parentId?: number | undefined;
+  /** Anchor to a line. `to` is the line in the new file, `from` in the old. */
+  inline?: { path: string; to?: number | undefined; from?: number | undefined } | undefined;
+};
+
 export type CommitStatusState = "SUCCESSFUL" | "FAILED" | "INPROGRESS" | "STOPPED";
 
 export type CommitStatus = {

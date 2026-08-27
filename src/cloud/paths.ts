@@ -56,6 +56,9 @@ export const PULL_REQUEST_DIFF = (workspace: string, repository: string, id: num
 export const PULL_REQUEST_PATCH = (workspace: string, repository: string, id: number): string =>
   `${PULL_REQUEST(workspace, repository, id)}/patch`;
 
+export const PULL_REQUEST_COMMENTS = (workspace: string, repository: string, id: number): string =>
+  `${PULL_REQUEST(workspace, repository, id)}/comments`;
+
 export const PIPELINES = (workspace: string, repository: string): string =>
   `${REPOSITORY(workspace, repository)}/pipelines`;
 

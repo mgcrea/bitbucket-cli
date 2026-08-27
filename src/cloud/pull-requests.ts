@@ -7,6 +7,7 @@ import type {
   MergeStrategy,
   PollOptions,
   PullRequest,
+  PullRequestComment,
   PullRequestRef,
   PullRequestSummary,
   RepoRef,
@@ -24,6 +25,7 @@ import { NotFoundError, ResponseParseError } from "../http/errors.js";
 import type { HttpClient } from "../http/http-client.js";
 import { paginate } from "../pagination/paginate.js";
 import { and, contains, eq, inList } from "../query/bbql.js";
+import { normalizeComment } from "./normalize/comment.js";
 import { normalizeCommit, normalizeCommitStatus } from "./normalize/commit.js";
 import {
   normalizePullRequest,
@@ -290,6 +292,42 @@ export const createPullRequestsResource = (http: HttpClient): PullRequestsResour
           yield normalizeCommitStatus(raw);
         }
       })();
+    },
+
+    comments(ref, options) {
+      const source = paginate<unknown>(
+        http,
+        { path: paths.PULL_REQUEST_COMMENTS(ref.workspace, ref.repository, ref.id) },
+        options ?? {},
+      );
+      return (async function* map(): AsyncGenerator<PullRequestComment> {
+        for await (const raw of source) {
+          yield normalizeComment(raw);
+        }
+      })();
+    },
+
+    async addComment(ref, input) {
+      const raw = await http.request<unknown>({
+        method: "POST",
+        path: paths.PULL_REQUEST_COMMENTS(ref.workspace, ref.repository, ref.id),
+        body: {
+          content: { raw: input.body },
+          ...(input.parentId === undefined ? {} : { parent: { id: input.parentId } }),
+          // An inline comment needs `path`; `to` anchors it in the new file and `from`
+          // in the old one.
+          ...(input.inline === undefined
+            ? {}
+            : {
+                inline: {
+                  path: input.inline.path,
+                  ...(input.inline.to === undefined ? {} : { to: input.inline.to }),
+                  ...(input.inline.from === undefined ? {} : { from: input.inline.from }),
+                },
+              }),
+        },
+      });
+      return normalizeComment(raw);
     },
 
     // Text endpoints, not JSON.

@@ -143,6 +143,10 @@ persisted, CI needs no setup step.
 
 ## Three things that will surprise you
 
+**There is no `bb pr reopen`.** Declining a pull request is final as far as the API is
+concerned — Bitbucket Cloud exposes no reopen endpoint (Data Center does). `bb pr close`
+therefore always asks for confirmation.
+
 **There is no `bb issue`.** Atlassian removed the Bitbucket issue tracker API — the
 endpoints return HTTP 410 and the schema is gone from the published OpenAPI spec. There
 is no replacement short of Jira. `bb issue` exists only to say so, because "unknown

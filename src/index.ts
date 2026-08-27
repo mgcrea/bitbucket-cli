@@ -113,3 +113,24 @@ export type { FieldPreset } from "./fields/presets.js";
 
 // BBQL query building
 export { and, contains, eq, inList, quoteBbql } from "./query/bbql.js";
+
+// Git context inference and the reads behind `pr create --fill`
+export {
+  buildPullRequestDraft,
+  commitsBetween,
+  currentBranch,
+  isDirty,
+  listBitbucketRemotes,
+  mergeBase,
+  parseBitbucketRemote,
+  parseRepoSpec,
+  remoteHasBranch,
+  resolveRepoContext,
+} from "./git/index.js";
+export type {
+  BitbucketRemote,
+  LocalCommit,
+  PullRequestDraft,
+  RepoContext,
+  ResolveRepoContextOptions,
+} from "./git/index.js";

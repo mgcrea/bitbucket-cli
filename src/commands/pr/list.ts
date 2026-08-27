@@ -71,6 +71,7 @@ export default defineBbCommand<PullRequestSummary>({
   ],
   async run({ args }) {
     const { io, client } = getRuntime();
+    const bb = await client();
     const repo = await repoFromArgs(args);
 
     const rawState = String(args["state"] ?? "open");
@@ -90,7 +91,7 @@ export default defineBbCommand<PullRequestSummary>({
           );
 
     const data = await collect(
-      client().pullRequests.list({
+      bb.pullRequests.list({
         ...repo,
         ...(state === undefined ? {} : { state }),
         limit: Number.parseInt(String(args["limit"] ?? "30"), 10),

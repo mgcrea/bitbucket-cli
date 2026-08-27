@@ -11,7 +11,7 @@ export default defineBbCommand<never>({
   },
   examples: ["bb pr diff 42", "bb pr diff 42 --patch | git apply"],
   async run({ args }) {
-    const { client } = getRuntime();
+    const bb = await getRuntime().client();
     const repo = await repoFromArgs(args);
     const id = Number.parseInt(String(args["id"]), 10);
     if (!Number.isFinite(id)) {
@@ -21,9 +21,7 @@ export default defineBbCommand<never>({
     const ref = { ...repo, id };
     // Text, not JSON — this deliberately bypasses the formatting layer entirely.
     const text =
-      args["patch"] === true
-        ? await client().pullRequests.patch(ref)
-        : await client().pullRequests.diff(ref);
+      args["patch"] === true ? await bb.pullRequests.patch(ref) : await bb.pullRequests.diff(ref);
     return { kind: "text", text };
   },
 });

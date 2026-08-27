@@ -23,10 +23,10 @@ export default defineBbCommand<Repository>({
   fields: FIELDS,
   examples: ["bb repo view", "bb repo view acme/api --json cloneUrls"],
   async run({ args }) {
-    const { client } = getRuntime();
+    const bb = await getRuntime().client();
     const positional = args["repository"] as string | undefined;
     const ref = await repoFromArgs(positional === undefined ? args : { ...args, repo: positional });
-    const repo = await client().repositories.get(ref);
+    const repo = await bb.repositories.get(ref);
 
     return {
       kind: "data",

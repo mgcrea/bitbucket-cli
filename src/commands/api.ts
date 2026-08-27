@@ -73,7 +73,7 @@ export default defineBbCommand<unknown>({
     "bb api '/repositories/acme/api/pullrequests' --paginate --flatten",
   ],
   async run({ args }) {
-    const { client } = getRuntime();
+    const bb = await getRuntime().client();
     const endpoint = await normalizeEndpoint(
       String(args["endpoint"]),
       args["repo"] as string | undefined,
@@ -110,10 +110,7 @@ export default defineBbCommand<unknown>({
       const spec = { method, path: endpoint, query, headers };
       if (args["flatten"] === true) {
         const values: unknown[] = [];
-        for await (const item of client().paginate<unknown>(
-          spec,
-          limit === undefined ? {} : { limit },
-        )) {
+        for await (const item of bb.paginate<unknown>(spec, limit === undefined ? {} : { limit })) {
           values.push(item);
         }
         return {
@@ -123,7 +120,7 @@ export default defineBbCommand<unknown>({
         };
       }
       const pages: unknown[] = [];
-      for await (const page of client().paginatePages<unknown>(
+      for await (const page of bb.paginatePages<unknown>(
         spec,
         limit === undefined ? {} : { limit },
       )) {
@@ -140,7 +137,7 @@ export default defineBbCommand<unknown>({
       };
     }
 
-    const data = await client().request<unknown>({
+    const data = await bb.request<unknown>({
       method,
       path: endpoint,
       query,

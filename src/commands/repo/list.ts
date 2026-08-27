@@ -36,12 +36,13 @@ export default defineBbCommand<RepositorySummary>({
   examples: ["bb repo list --workspace acme", "bb repo list -W acme --json fullName --jq '.[]'"],
   async run({ args }) {
     const { io, client } = getRuntime();
+    const bb = await client();
     // Required: the endpoint that listed repositories across every workspace was
     // removed by Atlassian and now returns 410.
     const workspace = workspaceFromArgs(args);
 
     const data = await collect(
-      client().repositories.list({
+      bb.repositories.list({
         workspace,
         limit: Number.parseInt(String(args["limit"] ?? "30"), 10),
         role: args["role"] as "owner" | "admin" | "contributor" | "member" | undefined,

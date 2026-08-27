@@ -28,14 +28,14 @@ export default defineBbCommand<PullRequest>({
   fields: FIELDS,
   examples: ["bb pr view 42", "bb pr view 42 --json title,state"],
   async run({ args }) {
-    const { client } = getRuntime();
+    const bb = await getRuntime().client();
     const repo = await repoFromArgs(args);
     const id = Number.parseInt(String(args["id"]), 10);
     if (!Number.isFinite(id)) {
       throw new UsageError(`Expected a pull-request number, got ${JSON.stringify(args["id"])}`);
     }
 
-    const pr = await client().pullRequests.get({ ...repo, id });
+    const pr = await bb.pullRequests.get({ ...repo, id });
 
     return {
       kind: "data",

@@ -45,7 +45,7 @@ export default defineBbCommand<AuthStatus>({
   examples: ["bb auth status", "bb auth status --json hasUserIdentity"],
   async run() {
     const { client } = getRuntime();
-    const bb = client();
+    const bb = await client();
     const identity = await bb.users.whoami();
     const capabilities = bb.auth.capabilities;
 

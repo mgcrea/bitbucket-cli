@@ -5,8 +5,11 @@ import type { Io } from "./output/io.js";
 
 export type Runtime = {
   io: Io;
-  /** Constructed lazily so `bb --help` never builds a client or reads credentials. */
-  client: () => BitbucketClient;
+  /**
+   * Constructed lazily and memoised, so `bb --help` never reads a credential file or
+   * builds an HTTP client. Async because resolving the credential touches disk.
+   */
+  client: () => Promise<BitbucketClient>;
   /** Everything after the first literal `--`, which citty would otherwise flatten. */
   passthrough: readonly string[];
 };

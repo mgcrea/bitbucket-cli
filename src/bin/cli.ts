@@ -2,7 +2,8 @@
 
 import { runMain } from "citty";
 
-import { createBitbucketClient } from "../client/bitbucket-client.js";
+import { resolveAuth } from "../auth/from-store.js";
+import { type BitbucketClient, createBitbucketClient } from "../client/bitbucket-client.js";
 import { rootCommand } from "../commands/index.js";
 import { reportError } from "../errors.js";
 import { createIo } from "../output/io.js";
@@ -15,13 +16,13 @@ const main = async (): Promise<void> => {
 
   // Built lazily and memoised, so `bb --help` never reads a credential or constructs
   // an HTTP client.
-  let client: ReturnType<typeof createBitbucketClient> | undefined;
+  let client: Promise<BitbucketClient> | undefined;
 
   await withRuntime(
     {
       io,
       client: () => {
-        client ??= createBitbucketClient();
+        client ??= resolveAuth().then((auth) => createBitbucketClient({ auth }));
         return client;
       },
       passthrough,

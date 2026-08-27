@@ -4,6 +4,7 @@ import type { HttpClient } from "../http/http-client.js";
 import { createPullRequestsResource } from "./pull-requests.js";
 import { createRepositoriesResource } from "./repositories.js";
 import { createUsersResource } from "./users.js";
+import { createWorkspacesResource } from "./workspaces.js";
 
 export const createCloudFlavor = (http: HttpClient, auth: AuthStrategy): Flavor => ({
   id: "cloud",
@@ -17,4 +18,5 @@ export const createCloudFlavor = (http: HttpClient, auth: AuthStrategy): Flavor 
   pullRequests: createPullRequestsResource(http),
   repositories: createRepositoriesResource(http),
   users: createUsersResource(http, auth),
+  workspaces: createWorkspacesResource(http),
 });

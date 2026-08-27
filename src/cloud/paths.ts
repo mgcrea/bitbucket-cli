@@ -8,7 +8,15 @@
 const enc = (value: string | number): string => encodeURIComponent(String(value));
 
 export const USER = "/user";
-export const USER_WORKSPACES = "/user/permissions/workspaces";
+/**
+ * The only remaining way to discover which workspaces a token can reach.
+ *
+ * `GET /workspaces` and the cross-workspace `GET /repositories` were both removed under
+ * CHANGE-2770, and `/user/permissions/workspaces` does not exist. Since every
+ * repository listing is workspace-scoped, this endpoint is a prerequisite for using the
+ * API at all.
+ */
+export const USER_WORKSPACES = "/user/workspaces";
 
 export const REPOSITORIES = (workspace: string): string => `/repositories/${enc(workspace)}`;
 

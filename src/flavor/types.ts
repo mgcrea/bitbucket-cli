@@ -17,6 +17,7 @@ import type {
   RepositorySummary,
   ReviewDecision,
   UserRef,
+  WorkspaceSummary,
 } from "./domain.js";
 
 export type FlavorCapabilities = {
@@ -127,6 +128,10 @@ export type RepositoriesResource = {
   defaultBranch(ref: RepoRef): Promise<string>;
 };
 
+export type WorkspacesResource = {
+  list(options?: PaginateOptions): AsyncIterable<WorkspaceSummary>;
+};
+
 export type UsersResource = {
   /** Throws `CapabilityError` without a request when the credential has no identity. */
   current(): Promise<UserRef>;
@@ -141,4 +146,5 @@ export type Flavor = {
   readonly pullRequests: PullRequestsResource;
   readonly repositories: RepositoriesResource;
   readonly users: UsersResource;
+  readonly workspaces: WorkspacesResource;
 };

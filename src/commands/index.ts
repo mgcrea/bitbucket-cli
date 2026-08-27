@@ -17,6 +17,7 @@ export const rootCommand = defineCommand({
     auth: () => import("./auth/index.js").then((module) => module.default),
     pr: () => import("./pr/index.js").then((module) => module.default),
     repo: () => import("./repo/index.js").then((module) => module.default),
+    workspace: () => import("./workspace/index.js").then((module) => module.default),
     api: () => import("./api.js").then((module) => module.default),
     issue: () => import("./issue.js").then((module) => module.default),
   },

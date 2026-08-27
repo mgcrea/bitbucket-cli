@@ -110,7 +110,9 @@ export default defineBbCommand<never>({
       kind,
       token,
       email,
-      username: user.nickname,
+      // The git-over-HTTPS username specifically, not the display name or nickname:
+      // those contain spaces and would produce an unusable clone URL.
+      username: user.username,
       uuid: user.uuid,
     });
 

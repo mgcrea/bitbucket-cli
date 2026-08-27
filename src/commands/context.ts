@@ -33,8 +33,9 @@ export const workspaceFromArgs = (args: BbArgs): string => {
     process.env["BITBUCKET_WORKSPACE"];
   if (workspace === undefined || workspace === "") {
     throw new UsageError(
-      "No workspace given. Pass --workspace, or set BB_WORKSPACE.\n" +
-        "Bitbucket removed the endpoint that listed repositories across all workspaces.",
+      "No workspace given. Pass --workspace, or set BB_WORKSPACE.",
+      "Bitbucket removed the endpoint that listed repositories across all workspaces,\n" +
+        "  so every listing is workspace-scoped. Run `bb workspace list` to see yours.",
     );
   }
   return workspace;

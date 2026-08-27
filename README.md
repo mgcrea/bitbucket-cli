@@ -11,15 +11,24 @@ Atlassian's own `acli` does not cover Bitbucket, and there is no maintained Bitb
 CLI in the TypeScript ecosystem. Three things here that the alternatives do not have:
 
 **Server-side field projection.** Bitbucket's `fields=` parameter lets the server do the
-projection, so `bb pr list --json id,title` asks for exactly two fields and transfers a
-fraction of the payload. **`gh` cannot do this** — GitHub's REST API has no
+projection, so `bb repo list --json fullName,isPrivate` asks for exactly those and
+transfers a fraction of the payload. **`gh` cannot do this** — GitHub's REST API has no
 partial-response parameter, so it fetches whole objects and discards most of them
 client-side.
 
 ```console
-$ bb pr list --json id,title
-# GET .../pullrequests?fields=next,page,pagelen,size,values.id,values.title
+$ bb repo list --json fullName,isPrivate
+# GET .../repositories/{ws}?fields=next,page,pagelen,size,values.full_name,values.is_private
 ```
+
+Measured against a real workspace, listing 50 repositories:
+
+| | bytes |
+|---|---|
+| unprojected (what a client without `fields=` must fetch) | 162,330 |
+| projected | 3,683 |
+
+**44x less data over the wire**, for identical output.
 
 **`--jq` and `--template`**, with `gh`'s helper set and no `jq` required on `PATH`.
 

@@ -5,6 +5,7 @@ type RawAccount = {
   account_id?: string;
   display_name?: string;
   nickname?: string;
+  username?: string;
 };
 
 export const normalizeUser = (raw: unknown): UserRef => {
@@ -14,5 +15,6 @@ export const normalizeUser = (raw: unknown): UserRef => {
     accountId: account.account_id,
     displayName: account.display_name ?? account.nickname ?? "unknown",
     nickname: account.nickname,
+    username: account.username,
   };
 };

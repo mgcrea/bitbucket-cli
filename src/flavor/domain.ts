@@ -26,6 +26,12 @@ export type UserRef = {
   accountId?: string | undefined;
   displayName: string;
   nickname?: string | undefined;
+  /**
+   * The Bitbucket username, which is what git over HTTPS authenticates with — it is
+   * neither the Atlassian email used for REST nor the display name. Still returned by
+   * the API even though *querying* by it is deprecated.
+   */
+  username?: string | undefined;
 };
 
 export type BranchRef = {
@@ -88,6 +94,14 @@ export type PullRequest = PullRequestSummary & {
   reason?: string | undefined;
   /** The untouched flavor payload. Never typed as the domain shape. */
   raw?: unknown;
+};
+
+export type WorkspaceSummary = {
+  slug: string;
+  name: string;
+  uuid?: string | undefined;
+  isAdministrator: boolean;
+  url: string;
 };
 
 export type ForkPolicy = "allow_forks" | "no_public_forks" | "no_forks";

@@ -45,6 +45,27 @@ describe("createApiTokenAuth", () => {
     );
   });
 
+  it("captures the Bitbucket username, which git needs and the email cannot supply", async () => {
+    // /user returns display_name, nickname AND username; only the last is usable in a
+    // clone URL — the other two contain spaces.
+    server.use(
+      http.get(`${BASE}/user`, () =>
+        HttpResponse.json({
+          display_name: "Olivier Louvignes",
+          nickname: "Olivier Louvignes",
+          username: "olouvignes1",
+          uuid: "{u}",
+        }),
+      ),
+    );
+    const { createBitbucketClient } = await import("../../src/client/bitbucket-client.js");
+    const user = await createBitbucketClient({
+      auth: createApiTokenAuth({ token: "t", email: "a@b.com" }),
+    }).users.current();
+    expect(user.username).toBe("olouvignes1");
+    expect(user.displayName).toBe("Olivier Louvignes");
+  });
+
   it("hands git the static token username, not the REST email", () => {
     // REST authenticates as the email; git over HTTPS does not accept it. Conflating
     // the two produces a 403 on push that looks nothing like an auth-setup mistake.

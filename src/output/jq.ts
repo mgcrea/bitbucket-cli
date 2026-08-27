@@ -11,18 +11,7 @@ export type JqEngine = {
   run(input: unknown, expression: string): Promise<string[]>;
 };
 
-/**
- * Resists bundler rewriting.
- *
- * rolldown turns a literal `await import("jq-wasm")` in a CJS output into
- * `Promise.resolve().then(() => require(...))`, which would inline the package and
- * break jq-wasm's resolution of its own `dist/build/jq.wasm` (it locates the binary
- * relative to its package directory). Going through `new Function` keeps the specifier
- * opaque to the bundler, so the real package is resolved from node_modules at runtime.
- */
-const dynamicImport = new Function("specifier", "return import(specifier)") as (
-  specifier: string,
-) => Promise<unknown>;
+import { lazyImport } from "./lazy.js";
 
 type JqWasmModule = {
   json(input: unknown, expression: string): Promise<unknown>;
@@ -32,7 +21,7 @@ type JqWasmModule = {
 let cached: Promise<JqEngine> | undefined;
 
 export const loadJq = (): Promise<JqEngine> => {
-  cached ??= dynamicImport("jq-wasm").then((module) => createEngine(module as JqWasmModule));
+  cached ??= lazyImport("jq-wasm").then((module) => createEngine(module as JqWasmModule));
   return cached;
 };
 

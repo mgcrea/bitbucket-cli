@@ -23,9 +23,23 @@ export type BitbucketClient = Flavor & {
   paginatePages<T>(spec: RequestSpec, options?: PaginateOptions): AsyncIterable<Page<T>>;
 };
 
+/**
+ * `BB_API_BASE_URL` points the client at a different API root. It exists for testing
+ * against a local server today, and is the seam a Data Center host will use later.
+ */
+const baseUrlFromEnv = (): string | undefined => {
+  const value = process.env["BB_API_BASE_URL"];
+  return value === undefined || value === "" ? undefined : value;
+};
+
 export const createBitbucketClient = (options: ClientOptions = {}): BitbucketClient => {
   const auth = options.auth ?? resolveAuthFromEnv();
-  const http = new HttpClient({ ...options, auth });
+  const baseUrl = options.baseUrl ?? baseUrlFromEnv();
+  const http = new HttpClient({
+    ...options,
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    auth,
+  });
   const flavor = createCloudFlavor(http, auth);
 
   return {

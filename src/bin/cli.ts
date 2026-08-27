@@ -1,48 +1,36 @@
 #!/usr/bin/env node
 
-import { loadJq } from "../output/jq.js";
-import { loadClack } from "../prompt/load.js";
+import { runMain } from "citty";
 
-const readStdin = async (): Promise<string> => {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString("utf8");
-};
+import { createBitbucketClient } from "../client/bitbucket-client.js";
+import { rootCommand } from "../commands/index.js";
+import { reportError } from "../errors.js";
+import { createIo } from "../output/io.js";
+import { withRuntime } from "../runtime.js";
+import { prepareArgv } from "./argv.js";
 
 const main = async (): Promise<void> => {
-  const [action = "help", ...args] = process.argv.slice(2);
+  const { argv, passthrough } = prepareArgv(process.argv.slice(2));
+  const io = createIo();
 
-  switch (action) {
-    case "--version": {
-      console.log("0.0.0");
-      break;
-    }
-    // M0 spike: proves jq-wasm loads and resolves its .wasm from inside the bundled
-    // CJS artifact, not just under tsx.
-    case "jq": {
-      const expression = args[0] ?? ".";
-      const input: unknown = JSON.parse(await readStdin());
-      const jq = await loadJq();
-      for (const line of await jq.run(input, expression)) {
-        console.log(line);
-      }
-      break;
-    }
-    // M0 spike: proves the ESM-only @clack/prompts resolves from the CJS bin.
-    case "clack": {
-      const clack = await loadClack();
-      console.log(typeof clack.text === "function" ? "clack-ok" : "clack-missing");
-      break;
-    }
-    default: {
-      console.log("Usage: bb <--version|jq <expr>|clack>");
-    }
-  }
+  // Built lazily and memoised, so `bb --help` never reads a credential or constructs
+  // an HTTP client.
+  let client: ReturnType<typeof createBitbucketClient> | undefined;
+
+  await withRuntime(
+    {
+      io,
+      client: () => {
+        client ??= createBitbucketClient();
+        return client;
+      },
+      passthrough,
+    },
+    () => runMain(rootCommand, { rawArgs: argv }),
+  );
 };
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+  reportError(error, createIo());
+  process.exit(process.exitCode === undefined ? 1 : Number(process.exitCode));
 });

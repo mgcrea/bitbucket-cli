@@ -1,136 +1,176 @@
 # @mgcrea/bitbucket-cli
 
-A Bitbucket equivalent of GitHub's `gh` — shipped as both a typed Bitbucket Cloud
-client and the `bb` command-line tool.
-
-> Early development. Not published yet.
-
-## Why
-
-Atlassian's own `acli` does not cover Bitbucket, and there is no maintained Bitbucket
-CLI in the TypeScript ecosystem. Three things here that the alternatives do not have:
-
-**Server-side field projection.** Bitbucket's `fields=` parameter lets the server do the
-projection, so `bb repo list --json fullName,isPrivate` asks for exactly those and
-transfers a fraction of the payload. **`gh` cannot do this** — GitHub's REST API has no
-partial-response parameter, so it fetches whole objects and discards most of them
-client-side.
+`bb` — a Bitbucket CLI in the shape of GitHub's `gh`, plus the typed Bitbucket Cloud
+client it is built on.
 
 ```console
-$ bb repo list --json fullName,isPrivate
-# GET .../repositories/{ws}?fields=next,page,pagelen,size,values.full_name,values.is_private
+$ bb pr list
+ID  TITLE                     BRANCH             STATE
+42  Add OAuth support         feature/oauth      OPEN
+39  Cache workspace lookups   perf/ws-cache      OPEN
+12  Fix pagination edge case  fix/pagination     MERGED
 ```
 
+## Why this exists
+
+Atlassian ships a first-party CLI, `acli`, and it covers Jira but **not Bitbucket**.
+The TypeScript ecosystem has no maintained Bitbucket CLI either. Three things here that
+the alternatives don't have:
+
+**Server-side field projection.** Bitbucket's `fields=` parameter lets the *server* do
+the projection, so `bb repo list --json fullName,isPrivate` asks for two fields and gets
+two fields. `gh` structurally cannot do this — GitHub's REST API has no partial-response
+parameter, so it fetches whole objects and throws most of them away client-side.
 Measured against a real workspace, listing 50 repositories:
 
-| | bytes |
+| | bytes over the wire |
 |---|---|
-| unprojected (what a client without `fields=` must fetch) | 162,330 |
-| projected | 3,683 |
+| unprojected | 162,330 |
+| `--json fullName,isPrivate` | 3,683 |
 
-**44x less data over the wire**, for identical output.
+**44x less data, identical output.**
 
-**`--jq` and `--template`**, with `gh`'s helper set and no `jq` required on `PATH`.
+**`--jq` and `--template`** with `gh`'s helper set, and no `jq` binary required.
 
-**An importable typed client**, which a Go binary structurally cannot offer.
+**An importable typed client** — something a Go binary cannot offer.
 
-## Usage
+## Install
+
+Not published yet. To run the working tree:
 
 ```bash
-# Authenticate. The token is read from stdin only — never argv, which leaks to `ps`,
-# shell history and CI logs.
-bb auth login --with-token --email you@example.com < token.txt
-bb auth status
-
-# Pull requests
-bb pr list
-bb pr list --state all --limit 50
-bb pr view 42
-bb pr diff 42 --patch | git apply
-
-# Repositories
-bb workspace list
-bb repo list --workspace acme
-bb repo view acme/api
-
-# Pipelines
-bb pipeline list                  # newest first
-bb pipeline list --failed
-bb pipeline view                  # the latest run, with its steps
-bb pipeline view 276
-bb pipeline log 276 --step 2
-
-# Any endpoint at all
-bb api /repositories/{workspace}/{repo}/pullrequests --paginate --flatten
+pnpm install
+make install          # builds, then symlinks `bb` onto your PATH
 ```
 
-### Output
+`make uninstall` removes it, `make link-status` shows where `bb` resolves. See
+[Development](#development) for details.
 
-Every list command speaks four formats. Piped output is TSV with no header, no padding
-and no colour, so it composes with ordinary shell tools:
+## Getting started
 
 ```bash
-bb pr list | awk -F'\t' '{print $1}'          # ids
-bb pr list --json                              # list the available fields
-bb pr list --json id,title --jq '.[] | .title'
+bb auth login
+```
+
+Prompts for everything, including the part that trips people up — Bitbucket needs an
+API token **created with scopes**, not the classic unscoped kind. For CI, pipe it:
+
+```bash
+bb auth login --with-token --email you@example.com < token.txt
+# or skip storage entirely and just set BB_TOKEN + BB_EMAIL
+```
+
+Then:
+
+```bash
+bb workspace list                 # which workspaces your token can reach
+bb repo list -W acme
+bb pr list
+bb pr view 42
+bb pr diff 42 --patch | git apply
+bb pipeline list
+```
+
+## Commands
+
+| | |
+|---|---|
+| `bb auth` | `login` · `logout` · `status` |
+| `bb pr` | `list` · `view` · `diff` |
+| `bb repo` | `list` · `view` |
+| `bb workspace` | `list` |
+| `bb pipeline` | `list` · `view` · `log` |
+| `bb api` | any endpoint, with `--paginate` / `--flatten` |
+
+Everything not wrapped yet is reachable through `bb api`:
+
+```bash
+bb api /repositories/{workspace}/{repo}/pullrequests --paginate --flatten
+bb api /user --jq .display_name
+```
+
+`{workspace}` and `{repo}` resolve from your git remote.
+
+## Output
+
+Every list command speaks four formats, and **piped output is TSV** — no header, no
+padding, no colour, no truncation — so it composes with ordinary shell tools:
+
+```bash
+bb pr list | awk -F'\t' '{print $1}'                   # just the ids
+bb pr list --json                                       # discover the field names
+bb pr list --json id,title --jq '.[] | "\(.id) \(.title)"'
 bb pr list --template '{{range .}}{{tablerow .id .title}}{{end}}{{tablerender}}'
 ```
 
-`--jq` runs real jq 1.8.2 compiled to WebAssembly, loaded only when you actually use it.
-`--template` implements a subset of Go's `text/template` with `gh`'s helper set, so
-existing `gh --template` snippets paste in unchanged.
+`--jq` runs real jq 1.8.2 compiled to WebAssembly, loaded only when you use it.
+`--template` implements a subset of Go's `text/template` with `gh`'s helpers —
+`tablerow`, `tablerender`, `timeago`, `truncate`, `color`, `autocolor`, `hyperlink`,
+`join`, `pluck`, `timefmt`, plus the usual builtins — so existing `gh --template`
+snippets paste in and work.
 
-### As a library
+`--jq` and `--template` imply `--json`, so you rarely need both.
+
+## As a library
 
 ```ts
 import { createBitbucketClient } from "@mgcrea/bitbucket-cli";
 
 const bb = createBitbucketClient();
+
 for await (const pr of bb.pullRequests.list({ workspace: "acme", repository: "api", limit: 20 })) {
   console.log(pr.id, pr.title);
 }
 ```
 
-Resources return async iterables, so `break` genuinely stops the HTTP chain —
-`--limit 5` costs one request, not forty.
+Resources return async iterables, so `break` genuinely stops the HTTP chain — `limit: 5`
+costs one request, not forty. Auth, retry with jitter, rate-limit parsing and the
+two pagination envelope shapes are all handled underneath.
 
-### Environment
+## Environment
 
-`BB_TOKEN` · `BB_EMAIL` · `BB_ACCESS_TOKEN` · `BB_TOKEN_TYPE` · `BB_REPO` ·
-`BB_WORKSPACE` · `BB_CONFIG_DIR` · `BB_API_BASE_URL` · `BB_DEBUG=api` ·
-`BB_FORCE_TTY` · `NO_COLOR`. The `BITBUCKET_*` spellings work as aliases.
+| | |
+|---|---|
+| `BB_TOKEN` `BB_EMAIL` `BB_TOKEN_TYPE` | credential; always wins over stored, never written to disk |
+| `BB_ACCESS_TOKEN` | repository/project/workspace access token |
+| `BB_REPO` `BB_WORKSPACE` | override the git-remote inference |
+| `BB_CONFIG_DIR` `BB_API_BASE_URL` | config location, API root |
+| `BB_DEBUG=api` | request tracing on stderr |
+| `BB_FORCE_TTY` `NO_COLOR` | force or suppress terminal rendering |
 
-An environment credential always wins over a stored one and is never written to disk,
-which is what makes CI work with no setup step.
+`BITBUCKET_*` works as an alias throughout. Because an environment credential is never
+persisted, CI needs no setup step.
 
-## Two things that will surprise you
+## Three things that will surprise you
 
 **There is no `bb issue`.** Atlassian removed the Bitbucket issue tracker API — the
 endpoints return HTTP 410 and the schema is gone from the published OpenAPI spec. There
 is no replacement short of Jira. `bb issue` exists only to say so, because "unknown
-command" would send you looking for a flag you did not get wrong.
+command" would send you hunting for a flag you didn't get wrong.
 
-**App passwords are gone** (removed 28 July 2026). Authentication is via Atlassian API
-tokens, resource access tokens, or OAuth 2.0. Two consequences:
+**App passwords are gone** (removed 28 July 2026). Use an Atlassian API token created at
+[id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens) via
+**"Create API token with scopes"**, selecting Bitbucket as the app. A plain unscoped
+token authenticates but every Bitbucket call fails with *"API Token provided has no
+Bitbucket scopes"*. Bitbucket also has **no device-code grant**, so there is no
+browser-based login on a headless box — pasting a token is the path.
 
-- Create your token at
-  [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens) and
-  **select "Bitbucket" as the app** — a plain unscoped Atlassian token authenticates but
-  is rejected by the Bitbucket API.
-- Bitbucket has **no device-code grant**, so there is no `gh auth login`-style browser
-  flow on a headless machine. Pasting a token is the path.
+**Every listing is workspace-scoped.** `GET /workspaces` and the cross-workspace
+`GET /repositories` were both removed under CHANGE-2770, which is why `bb repo list`
+requires `-W` and why `bb workspace list` exists at all.
 
-Note also that repository, project and workspace access tokens are not tied to an
-Atlassian account, so `GET /user` fails for them. `bb` detects this before making a
-request and tells you which commands are unavailable rather than surfacing a 401.
+Also worth knowing: repository, project and workspace access tokens are not tied to an
+Atlassian account, so `GET /user` fails for them. `bb` detects that before making a
+request and tells you which commands are unavailable instead of surfacing a bare 401.
 
 ## Credential storage
 
-Credentials live in `~/.config/bb/hosts.yml` at mode `0600`, the same as `gh`. Stated
-plainly: that keeps the token out of a screenshare and out of a dotfile sync, and does
-nothing against a local attacker. An "encrypted" file whose key is derivable on the same
-machine would be obfuscation dressed as security, so this does not offer one. OS
-keychain support is planned as an opt-in.
+Credentials live in `~/.config/bb/hosts.yml` at mode `0600`, written atomically — the
+same as `gh`. Plainly: that keeps the token out of a screenshare and out of a dotfile
+sync, and does nothing against a local attacker. An "encrypted" file whose key is
+derivable on the same machine is obfuscation dressed as security, so this doesn't ship
+one. OS keychain support is planned as an opt-in, and will be described just as
+honestly.
 
 ## Development
 
@@ -148,24 +188,32 @@ make link-status  # show where `bb` currently resolves
 make uninstall    # remove the symlink
 ```
 
-`pnpm run install:local` does the same thing if you would rather not use make.
+`pnpm run install:local` does the same without make. The link points at
+`dist/bin/cli.cjs`, so `pnpm run build` alone picks up a change — no relink. It installs
+to `$(npm prefix -g)/bin`, because pnpm's global bin directory is often missing from
+`PATH` until `pnpm setup` has been run. Override with `make install BIN_DIR=~/.local/bin`.
 
-The link points at `dist/bin/cli.cjs`, so `pnpm run build` is enough to pick up a
-change — no relink needed. It installs to `$(npm prefix -g)/bin` by default, because
-pnpm's global bin directory is often absent from `PATH` until you run `pnpm setup`.
-Override it if you keep binaries elsewhere:
+`install` refuses to overwrite anything that isn't a symlink, and `uninstall` refuses to
+remove a symlink pointing outside this checkout.
 
-```bash
-make install BIN_DIR=~/.local/bin
-```
-
-`install` refuses to overwrite anything that is not a symlink, and `uninstall` refuses
-to remove a symlink pointing somewhere other than this checkout.
+### Generated types
 
 `pnpm run generate:types` regenerates `src/generated/openapi.ts` from Atlassian's
 published spec. The output is committed so CI never hits the network, and drift is
-checked on a weekly cron rather than in PR CI — an upstream edit should not redden an
+checked on a weekly cron rather than in PR CI — an upstream edit shouldn't redden an
 unrelated pull request.
+
+Only `components.schemas` is generated. The spec under-declares query parameters
+(`GET /pullrequests` omits `q`, `sort`, `fields`, `page` and `pagelen`), so a
+`paths`-typed client would reject correct code.
+
+## Not there yet
+
+`pr create` · `pr checkout` · `pr merge` · `pr review` · `repo clone` · `browse` ·
+`completion` · aliases · extensions · OAuth login · Data Center support.
+
+The client is designed behind a resource-level flavor interface so Data Center can be
+added without a rewrite, but only Bitbucket Cloud is implemented.
 
 ## License
 

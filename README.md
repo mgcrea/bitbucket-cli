@@ -212,6 +212,31 @@ to `$(npm prefix -g)/bin`, because pnpm's global bin directory is often missing 
 `install` refuses to overwrite anything that isn't a symlink, and `uninstall` refuses to
 remove a symlink pointing outside this checkout.
 
+### Releasing
+
+`release-it` bumps the version, cuts the tag and creates the GitHub release locally;
+pushing the tag triggers `.github/workflows/release.yml`, which runs the gate again and
+publishes to npm with provenance.
+
+```bash
+pnpm run release
+```
+
+Publishing authenticates by OIDC trusted publishing, so no long-lived token sits in the
+repository. npm cannot configure trusted publishing for a package that does not exist
+yet, so the very first version of a new package needs one of:
+
+```bash
+# either: publish once by hand, then wire up trust
+npm publish --access public --provenance=false
+npm trust github @scope/name --file .github/workflows/release.yml --repo owner/name --allow-publish
+
+# or: set an NPM_TOKEN repository secret, which the workflow uses as a fallback
+```
+
+Once trusted publishing is configured, remove the `NPM_TOKEN` secret — the workflow
+prefers it when present, and OIDC is the better credential.
+
 ### Generated types
 
 `pnpm run generate:types` regenerates `src/generated/openapi.ts` from Atlassian's

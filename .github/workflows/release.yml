@@ -5,9 +5,17 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
       - "v[0-9]+.[0-9]+.[0-9]+*"
+  # Lets a failed publish be retried without re-cutting a tag.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or ref to publish"
+        required: true
+        type: string
 
 permissions:
   contents: read
+  # Required both for OIDC trusted publishing and for provenance attestation.
   id-token: write
 
 jobs:
@@ -15,31 +23,92 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
       - uses: pnpm/action-setup@v4
+
+      # Deliberately no `registry-url`: that writes an .npmrc pinning auth to
+      # NODE_AUTH_TOKEN, which shadows OIDC even when the token is empty. Auth is
+      # configured explicitly below instead.
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-      # Trusted publishing needs npm 11.5.1+.
+
+      # Trusted publishing needs npm 11.5.1+, newer than the bundled version.
       - name: Update npm
         run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
-      - name: Verify tag matches package.json
+
+      - name: Verify the tag matches package.json
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          ref="${{ inputs.ref || github.ref_name }}"
+          tag="${ref#v}"
           pkg="$(node -p "require('./package.json').version")"
           if [ "$tag" != "$pkg" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            echo "::error::Ref $ref does not match package.json version $pkg"
             exit 1
           fi
-          echo "Publishing version $pkg"
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+          # A prerelease must not become `latest`, or `npm i pkg` starts serving it.
+          case "$pkg" in
+            *-*) echo "npm_tag=next" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "npm_tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - run: pnpm run lint
       - run: pnpm run check
       - run: pnpm run format:check
       - run: pnpm run spec
       - run: pnpm run build
-      # Do not set NODE_AUTH_TOKEN — it takes precedence over OIDC and would silently
-      # fall back to token auth.
+      # Runs the bin suite, which is skipped until dist/ exists. It is the only thing
+      # that exercises the shipped artifact rather than the sources.
+      - run: pnpm run spec
+
+      - name: Choose an authentication method
+        id: auth
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            # Fallback for the first publish of a new package: npm cannot configure
+            # trusted publishing for a package that does not exist yet.
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+            echo "method=token" >> "$GITHUB_OUTPUT"
+            echo "Authenticating with NPM_TOKEN."
+          else
+            echo "method=oidc" >> "$GITHUB_OUTPUT"
+            echo "Authenticating with OIDC trusted publishing."
+          fi
+
+      - name: Skip if this version is already on npm
+        id: published
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          if npm view "${name}@${{ steps.version.outputs.version }}" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${name}@${{ steps.version.outputs.version }} is already published; skipping."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        if: steps.published.outputs.already == 'false'
+        run: |
+          npm publish \
+            --provenance \
+            --access public \
+            --tag "${{ steps.version.outputs.npm_tag }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### ${{ steps.version.outputs.version }}"
+            echo
+            echo "- auth: \`${{ steps.auth.outputs.method }}\`"
+            echo "- dist-tag: \`${{ steps.version.outputs.npm_tag }}\`"
+            echo "- published: \`${{ steps.published.outputs.already == 'false' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

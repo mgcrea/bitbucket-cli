@@ -6,6 +6,7 @@ export default defineCommand({
     list: () => import("./list.js").then((module) => module.default),
     view: () => import("./view.js").then((module) => module.default),
     diff: () => import("./diff.js").then((module) => module.default),
+    status: () => import("./status.js").then((module) => module.default),
     create: () => import("./create.js").then((module) => module.default),
     checkout: () => import("./checkout.js").then((module) => module.default),
     merge: () => import("./merge.js").then((module) => module.default),

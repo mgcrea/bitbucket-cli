@@ -78,7 +78,12 @@ bb pr create --fill               # title and body from your commits
 bb pr checkout 42                 # cross-fork pull requests too
 bb pr review --approve
 bb pr merge --squash --delete-branch
+bb pr status                      # yours, and the ones awaiting your review
 ```
+
+`bb repo clone` hands git a credential per operation through `bb auth git-credential`,
+so your token never ends up in `.git/config` or a remote URL the way it does when you
+clone `https://user:token@bitbucket.org/…`.
 
 Commands that take a pull-request number default to the one for the current branch,
 so `bb pr merge` usually needs no argument.
@@ -88,10 +93,11 @@ so `bb pr merge` usually needs no argument.
 | | |
 |---|---|
 | `bb auth` | `login` · `logout` · `status` |
-| `bb pr` | `list` · `view` · `diff` · `create` · `checkout` · `merge` · `close` · `ready` · `review` · `comment` |
-| `bb repo` | `list` · `view` |
+| `bb pr` | `list` · `view` · `diff` · `status` · `create` · `checkout` · `merge` · `close` · `ready` · `review` · `comment` |
+| `bb repo` | `list` · `view` · `clone` |
 | `bb workspace` | `list` |
 | `bb pipeline` | `list` · `view` · `log` |
+| `bb browse` | open the repo, a pull request, a file or the pipelines page |
 | `bb api` | any endpoint, with `--paginate` / `--flatten` |
 
 Everything not wrapped yet is reachable through `bb api`:
@@ -250,8 +256,8 @@ Only `components.schemas` is generated. The spec under-declares query parameters
 
 ## Not there yet
 
-`repo clone` · `browse` · `completion` · `pr status` · `pipeline run` · aliases ·
-extensions · OAuth login · Data Center support.
+`completion` · `pipeline run` · aliases · extensions · OAuth login ·
+Data Center support.
 
 The client is designed behind a resource-level flavor interface so Data Center can be
 added without a rewrite, but only Bitbucket Cloud is implemented.

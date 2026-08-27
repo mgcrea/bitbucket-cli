@@ -171,7 +171,8 @@ export class CapabilityError extends BitbucketError {
     readonly authKind: string,
     hint: string,
   ) {
-    super(`This operation is not available with a ${authKind} credential`, { hint });
+    const article = /^[aeiou]/i.test(authKind) ? "an" : "a";
+    super(`This operation is not available with ${article} ${authKind} credential`, { hint });
   }
 }
 

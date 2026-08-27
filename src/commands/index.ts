@@ -20,6 +20,7 @@ export const rootCommand = defineCommand({
     workspace: () => import("./workspace/index.js").then((module) => module.default),
     pipeline: () => import("./pipeline/index.js").then((module) => module.default),
     api: () => import("./api.js").then((module) => module.default),
+    browse: () => import("./browse.js").then((module) => module.default),
     issue: () => import("./issue.js").then((module) => module.default),
   },
 });

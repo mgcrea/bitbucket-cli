@@ -5,5 +5,6 @@ export default defineCommand({
   subCommands: {
     list: () => import("./list.js").then((module) => module.default),
     view: () => import("./view.js").then((module) => module.default),
+    clone: () => import("./clone.js").then((module) => module.default),
   },
 });

@@ -24,7 +24,9 @@ export const PULL_REQUEST_FIELDS = {
 
 export const REPOSITORY_FIELDS = {
   list: ["-links", "-description", "-owner.links", "-project.links", "-mainbranch.links"],
-  wide: ["-links.clone"],
+  // Deliberately keeps `links`: the clone URLs live under `links.clone`, and `bb repo
+  // clone` reads them from a `get()`. Stripping them here made cloning impossible.
+  wide: [],
   ref: ["uuid", "full_name", "slug"],
 } as const satisfies Record<string, FieldProjection>;
 

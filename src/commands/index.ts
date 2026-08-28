@@ -21,6 +21,7 @@ export const rootCommand = defineCommand({
     pipeline: () => import("./pipeline/index.js").then((module) => module.default),
     api: () => import("./api.js").then((module) => module.default),
     browse: () => import("./browse.js").then((module) => module.default),
+    completion: () => import("./completion/index.js").then((module) => module.default),
     issue: () => import("./issue.js").then((module) => module.default),
   },
 });

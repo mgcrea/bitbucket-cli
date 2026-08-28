@@ -1,6 +1,6 @@
 {
   "name": "@mgcrea/bitbucket-cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A Bitbucket equivalent of GitHub's gh — a typed Bitbucket Cloud client and the `bb` CLI",
   "author": "Olivier Louvignes <olivier@mgcrea.io> (https://github.com/mgcrea)",
   "homepage": "https://github.com/mgcrea/bitbucket-cli#readme",

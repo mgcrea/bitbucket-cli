@@ -1,5 +1,9 @@
 import type { PipelineStatus, PipelineStep, PipelineSummary, RepoRef } from "../flavor/domain.js";
-import type { ListPipelinesOptions, PipelinesResource } from "../flavor/types.js";
+import type {
+  ListPipelinesOptions,
+  PipelinesResource,
+  TriggerPipelineInput,
+} from "../flavor/types.js";
 import type { HttpClient } from "../http/http-client.js";
 import { type PaginateOptions, paginate } from "../pagination/paginate.js";
 import { and, eq } from "../query/bbql.js";
@@ -45,6 +49,65 @@ export const createPipelinesResource = (http: HttpClient): PipelinesResource => 
         }
       }
     })();
+  },
+
+  /**
+   * Builds the `pipeline_target` discriminated union.
+   *
+   * Hand-written from live responses: the published spec declares pipeline_target with
+   * empty properties, so the generated type carries no shape at all. A commit target
+   * and a ref target are different variants, and a named custom pipeline rides along as
+   * a selector on either.
+   */
+  async trigger(ref: RepoRef, input: TriggerPipelineInput): Promise<PipelineSummary> {
+    const selector =
+      input.pipeline === undefined
+        ? undefined
+        : { type: "custom" as const, pattern: input.pipeline };
+
+    const target =
+      input.commit === undefined
+        ? {
+            type: "pipeline_ref_target" as const,
+            ref_type: input.refType ?? "branch",
+            ref_name: input.ref,
+            ...(selector === undefined ? {} : { selector }),
+          }
+        : {
+            type: "pipeline_commit_target" as const,
+            commit: { type: "commit" as const, hash: input.commit },
+            // A commit target still needs the ref when a custom pipeline is named,
+            // because the selector is resolved against it.
+            ...(input.ref === undefined
+              ? {}
+              : { ref_type: input.refType ?? "branch", ref_name: input.ref }),
+            ...(selector === undefined ? {} : { selector }),
+          };
+
+    const raw = await http.request<unknown>({
+      method: "POST",
+      path: paths.PIPELINES(ref.workspace, ref.repository),
+      body: {
+        target,
+        ...(input.variables === undefined || input.variables.length === 0
+          ? {}
+          : {
+              variables: input.variables.map((variable) => ({
+                key: variable.key,
+                value: variable.value,
+                secured: variable.secured ?? false,
+              })),
+            }),
+      },
+    });
+    return normalizePipeline(raw, repoUrl(ref));
+  },
+
+  async stop(ref: RepoRef, uuid: string): Promise<void> {
+    await http.request({
+      method: "POST",
+      path: paths.PIPELINE_STOP(ref.workspace, ref.repository, uuid),
+    });
   },
 
   async get(ref: RepoRef, selector: number | string): Promise<PipelineSummary> {

@@ -144,7 +144,20 @@ export type ListPipelinesOptions = RepoRef &
     sort?: string | undefined;
   };
 
+export type TriggerPipelineInput = {
+  /** Branch or tag to run against. Defaults to the current branch. */
+  ref?: string | undefined;
+  refType?: "branch" | "tag" | undefined;
+  /** A named custom pipeline from bitbucket-pipelines.yml. */
+  pipeline?: string | undefined;
+  /** Run against one commit rather than the tip of a ref. */
+  commit?: string | undefined;
+  variables?: readonly { key: string; value: string; secured?: boolean | undefined }[] | undefined;
+};
+
 export type PipelinesResource = {
+  trigger(ref: RepoRef, input: TriggerPipelineInput): Promise<PipelineSummary>;
+  stop(ref: RepoRef, uuid: string): Promise<void>;
   list(options: ListPipelinesOptions): AsyncIterable<PipelineSummary>;
   /** Accepts a build number or a pipeline UUID. */
   get(ref: RepoRef, selector: number | string): Promise<PipelineSummary>;

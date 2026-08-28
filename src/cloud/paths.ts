@@ -65,6 +65,9 @@ export const PIPELINES = (workspace: string, repository: string): string =>
 export const PIPELINE = (workspace: string, repository: string, selector: string): string =>
   `${PIPELINES(workspace, repository)}/${enc(selector)}`;
 
+export const PIPELINE_STOP = (workspace: string, repository: string, uuid: string): string =>
+  `${PIPELINE(workspace, repository, uuid)}/stopPipeline`;
+
 export const PIPELINE_STEPS = (workspace: string, repository: string, uuid: string): string =>
   `${PIPELINE(workspace, repository, uuid)}/steps`;
 

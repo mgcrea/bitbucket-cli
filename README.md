@@ -96,8 +96,10 @@ so `bb pr merge` usually needs no argument.
 | `bb pr` | `list` · `view` · `diff` · `status` · `create` · `checkout` · `merge` · `close` · `ready` · `review` · `comment` |
 | `bb repo` | `list` · `view` · `clone` |
 | `bb workspace` | `list` |
-| `bb pipeline` | `list` · `view` · `log` |
+| `bb pipeline` | `list` · `view` · `log` · `run` · `stop` |
 | `bb browse` | open the repo, a pull request, a file or the pipelines page |
+| `bb alias` | `set` · `list` · `delete` |
+| `bb completion` | `bash` · `zsh` · `fish` · `powershell` |
 | `bb api` | any endpoint, with `--paginate` / `--flatten` |
 
 Everything not wrapped yet is reachable through `bb api`:
@@ -255,10 +257,28 @@ Only `components.schemas` is generated. The spec under-declares query parameters
 (`GET /pullrequests` omits `q`, `sort`, `fields`, `page` and `pagelen`), so a
 `paths`-typed client would reject correct code.
 
+## Shortcuts
+
+```bash
+bb alias set prs 'pr list --state open --limit 50'
+bb alias set v 'pr view $1 --json url'      # $1..$9 and $@ are substituted
+bb alias set --shell bugs '!bb pr list --json title | grep -i bug'
+```
+
+A built-in always wins, so an alias can never shadow `bb pr`.
+
+## Shell completion
+
+```bash
+eval "$(bb completion -s zsh)"      # or bash
+bb completion -s fish | source
+```
+
+Generated from the same command tree that dispatches, so it cannot drift.
+
 ## Not there yet
 
-`completion` · `pipeline run` · aliases · extensions · OAuth login ·
-Data Center support.
+extensions · OAuth login · Data Center support.
 
 The client is designed behind a resource-level flavor interface so Data Center can be
 added without a rewrite, but only Bitbucket Cloud is implemented.

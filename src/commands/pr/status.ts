@@ -24,6 +24,9 @@ const FIELDS: FieldMap<StatusRow> = {
   url: { pick: (pr) => pr.url },
 };
 
+const tag = (prs: readonly PullRequestSummary[], section: Section): StatusRow[] =>
+  prs.map((pr) => Object.assign({ section }, pr));
+
 const HEADINGS: Record<Section, string> = {
   current: "Current branch",
   created: "Created by you",
@@ -74,12 +77,13 @@ export default defineBbCommand<StatusRow>({
     ]);
 
     const rows: StatusRow[] = [
-      ...current.map((pr) => ({ ...pr, section: "current" as const })),
-      ...created.map((pr) => ({ ...pr, section: "created" as const })),
+      ...tag(current, "current"),
+      ...tag(created, "created"),
       // A pull request you opened yourself is not something you are reviewing.
-      ...reviewing
-        .filter((pr) => pr.author.uuid !== author)
-        .map((pr) => ({ ...pr, section: "review-requested" as const })),
+      ...tag(
+        reviewing.filter((pr) => pr.author.uuid !== author),
+        "review-requested",
+      ),
     ];
 
     return {

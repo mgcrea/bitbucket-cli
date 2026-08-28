@@ -18,6 +18,19 @@ const FIELDS: FieldMap<PipelineSummary> = {
   url: { pick: (run) => run.url },
 };
 
+/** Splits on the FIRST `=` only, so a value may itself contain one. */
+const parseVariables = (
+  pairs: readonly string[],
+  secured: boolean,
+): { key: string; value: string; secured: boolean }[] =>
+  pairs.map((pair) => {
+    const separator = pair.indexOf("=");
+    if (separator <= 0) {
+      throw new UsageError(`Expected KEY=VALUE, got ${JSON.stringify(pair)}`);
+    }
+    return { key: pair.slice(0, separator), value: pair.slice(separator + 1), secured };
+  });
+
 export default defineBbCommand<PipelineSummary>({
   meta: { name: "run", description: "Trigger a pipeline" },
   args: {
@@ -59,22 +72,9 @@ export default defineBbCommand<PipelineSummary>({
     }
 
     // Read from argv: citty collapses a repeated flag to its last value.
-    const parse = (pairs: readonly string[], secured: boolean) =>
-      pairs.map((pair) => {
-        const separator = pair.indexOf("=");
-        if (separator <= 0) {
-          throw new UsageError(`Expected KEY=VALUE, got ${JSON.stringify(pair)}`);
-        }
-        return {
-          key: pair.slice(0, separator),
-          value: pair.slice(separator + 1),
-          secured,
-        };
-      });
-
     const variables = [
-      ...parse(collectRepeated(rawArgs, ["v", "variable"]), false),
-      ...parse(collectRepeated(rawArgs, ["secured"]), true),
+      ...parseVariables(collectRepeated(rawArgs, ["v", "variable"]), false),
+      ...parseVariables(collectRepeated(rawArgs, ["secured"]), true),
     ];
 
     const run = await bb.pipelines.trigger(repo, {

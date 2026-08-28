@@ -1,3 +1,4 @@
+import { AliasError } from "./alias/expand.js";
 import { BitbucketError, describeError } from "./http/errors.js";
 import type { Io } from "./output/io.js";
 
@@ -47,6 +48,13 @@ export class UsageError extends Error {
  * failing command leaves a pipe clean rather than feeding it half a JSON document.
  */
 export const reportError = (error: unknown, io: Io): void => {
+  if (error instanceof AliasError) {
+    io.error(error.message);
+    io.info("  Check `bb alias list`.");
+    process.exitCode = EXIT.usage;
+    return;
+  }
+
   if (error instanceof UsageError) {
     io.error(error.message);
     if (error.hint !== undefined) {

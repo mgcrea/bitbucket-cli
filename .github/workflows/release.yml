@@ -98,10 +98,20 @@ jobs:
       - name: Publish to npm
         if: steps.published.outputs.already == 'false'
         run: |
-          npm publish \
-            --provenance \
-            --access public \
-            --tag "${{ steps.version.outputs.npm_tag }}"
+          set +e
+          out="$(npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}" 2>&1)"
+          code=$?
+          printf '%s\n' "$out"
+          [ $code -eq 0 ] && exit 0
+          # The registry's read path lags its write path by minutes, so the pre-check
+          # above can miss a version that is already live. Publishing then fails with
+          # this specific message, which means the desired state already holds. Only
+          # that exact refusal is tolerated — a real 403 still fails the run.
+          if printf '%s' "$out" | grep -qF "cannot publish over the previously published versions"; then
+            echo "::notice::Version is already on npm; nothing to do."
+            exit 0
+          fi
+          exit $code
 
       - name: Summary
         run: |

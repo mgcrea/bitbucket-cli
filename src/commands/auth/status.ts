@@ -63,6 +63,7 @@ export default defineBbCommand<AuthStatus>({
     return {
       kind: "data",
       data: [status],
+      single: true,
       render: ([only], io) => {
         if (only === undefined) {
           return;

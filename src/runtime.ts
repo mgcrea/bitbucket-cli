@@ -12,6 +12,11 @@ export type Runtime = {
   client: () => Promise<BitbucketClient>;
   /** Everything after the first literal `--`, which citty would otherwise flatten. */
   passthrough: readonly string[];
+  /**
+   * argv as citty received it. Needed because citty cannot express a repeatable flag,
+   * so `-f a=1 -f b=2` collapses to the last value in the parsed args.
+   */
+  rawArgs: readonly string[];
 };
 
 const storage = new AsyncLocalStorage<Runtime>();

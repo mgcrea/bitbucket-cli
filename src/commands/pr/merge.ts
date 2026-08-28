@@ -84,6 +84,7 @@ export default defineBbCommand<PullRequest>({
     return {
       kind: "data",
       data: [outcome.pullRequest],
+      single: true,
       render: ([only], target) => {
         if (only !== undefined) {
           target.info(`Merged #${only.id} — ${only.title}`);

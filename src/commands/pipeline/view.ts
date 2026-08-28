@@ -58,6 +58,7 @@ export default defineBbCommand<PipelineDetail>({
     return {
       kind: "data",
       data: [{ ...run, steps }],
+      single: true,
       render: ([only], io) => {
         if (only === undefined) {
           return;

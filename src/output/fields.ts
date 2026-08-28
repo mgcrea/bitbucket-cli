@@ -1,3 +1,4 @@
+import { UsageError } from "../errors.js";
 import type { FieldProjection } from "../fields/projection.js";
 
 /**
@@ -44,7 +45,11 @@ const didYouMean = (unknown: string, candidates: readonly string[]): string | un
   return best !== undefined && best.distance <= 3 ? best.candidate : undefined;
 };
 
-export class UnknownFieldError extends Error {
+/**
+ * Extends UsageError so a mistyped `--json` field exits 2 like any other bad flag,
+ * rather than falling through to the generic failure code.
+ */
+export class UnknownFieldError extends UsageError {
   override readonly name = "UnknownFieldError";
   constructor(
     readonly field: string,

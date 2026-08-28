@@ -107,6 +107,7 @@ export default defineBbCommand<PullRequestComment>({
     return {
       kind: "data",
       data: [comment],
+      single: true,
       render: ([only], io) => {
         if (only !== undefined) {
           io.info(`Added comment ${only.id} to #${id}.`);

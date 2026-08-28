@@ -63,6 +63,7 @@ export default defineBbCommand<Browsed>({
       return {
         kind: "data",
         data: [{ url }],
+        single: true,
         render: ([only], target_) => {
           if (only !== undefined) target_.out(only.url);
         },
@@ -75,6 +76,7 @@ export default defineBbCommand<Browsed>({
     return {
       kind: "data",
       data: [{ url }],
+      single: true,
       render: ([only], target_) => {
         if (only === undefined) {
           return;

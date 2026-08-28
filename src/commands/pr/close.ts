@@ -45,6 +45,7 @@ export default defineBbCommand<PullRequest>({
     return {
       kind: "data",
       data: [pr],
+      single: true,
       render: ([only], target) => {
         if (only !== undefined) {
           target.info(`Declined #${only.id} — ${only.title}`);

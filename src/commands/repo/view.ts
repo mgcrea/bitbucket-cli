@@ -31,6 +31,7 @@ export default defineBbCommand<Repository>({
     return {
       kind: "data",
       data: [repo],
+      single: true,
       render: ([only], io) => {
         if (only === undefined) {
           return;

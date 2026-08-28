@@ -33,7 +33,7 @@ const KIND_TO_EXIT: Record<string, number> = {
 };
 
 export class UsageError extends Error {
-  override readonly name = "UsageError";
+  override readonly name: string = "UsageError";
   constructor(
     message: string,
     readonly hint?: string,

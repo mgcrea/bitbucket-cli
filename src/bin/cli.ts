@@ -26,6 +26,7 @@ const main = async (): Promise<void> => {
         return client;
       },
       passthrough,
+      rawArgs: argv,
     },
     () => runMain(rootCommand, { rawArgs: argv }),
   );

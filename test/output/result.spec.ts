@@ -68,3 +68,35 @@ describe("renderResult", () => {
     expect(io.stdout).toBe("diff --git a b\n");
   });
 });
+
+describe("single results", () => {
+  it("emits the object rather than a one-element array", async () => {
+    const io = createFakeIo();
+    // A view command yields an object and a list command an array, matching gh.
+    // Without this, `bb pr view 42 --jq .title` would need `.[0].title`.
+    await renderResult(
+      { kind: "data", data: [rows[0]!], render: () => {}, single: true },
+      { json: "id,title" },
+      fields,
+      io,
+    );
+    expect(JSON.parse(io.stdout)).toEqual({ id: 1, title: "first" });
+  });
+
+  it("still emits an array without the marker", async () => {
+    const io = createFakeIo();
+    await renderResult({ ...result, data: [rows[0]!] }, { json: "id" }, fields, io);
+    expect(JSON.parse(io.stdout)).toEqual([{ id: 1 }]);
+  });
+
+  it("applies to --jq too", async () => {
+    const io = createFakeIo();
+    await renderResult(
+      { kind: "data", data: [rows[0]!], render: () => {}, single: true },
+      { jq: ".title" },
+      fields,
+      io,
+    );
+    expect(io.stdout).toBe("first\n");
+  });
+});

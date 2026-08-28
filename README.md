@@ -117,7 +117,8 @@ padding, no colour, no truncation — so it composes with ordinary shell tools:
 ```bash
 bb pr list | awk -F'\t' '{print $1}'                   # just the ids
 bb pr list --json                                       # discover the field names
-bb pr list --json id,title --jq '.[] | "\(.id) \(.title)"'
+bb pr list --json id,title --jq '.[] | "\(.id) \(.title)"'    # a list is an array
+bb pr view 42 --json title --jq .title                    # a view is an object
 bb pr list --template '{{range .}}{{tablerow .id .title}}{{end}}{{tablerender}}'
 ```
 

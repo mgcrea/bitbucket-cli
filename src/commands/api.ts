@@ -1,11 +1,9 @@
+import { collectRepeated } from "../bin/repeated.js";
 import { defineBbCommand } from "../command.js";
 import { UsageError } from "../errors.js";
 import { resolveRepoContext } from "../git/context.js";
 import type { HttpMethod, QueryInit } from "../http/request.js";
 import { getRuntime } from "../runtime.js";
-
-const asArray = (value: unknown): string[] =>
-  value === undefined ? [] : Array.isArray(value) ? value.map(String) : [String(value)];
 
 const splitPair = (pair: string): [string, string] => {
   const separator = pair.indexOf("=");
@@ -60,8 +58,16 @@ export default defineBbCommand<unknown>({
       alias: "X",
       description: "HTTP method (default GET, or POST with fields)",
     },
-    "raw-field": { type: "string", alias: "f", description: "Add a string parameter (repeatable)" },
-    field: { type: "string", alias: "F", description: "Add a typed parameter (repeatable)" },
+    "raw-field": {
+      type: "string",
+      alias: "f",
+      description: "String parameter. Body on a write, query string on -X GET (repeatable)",
+    },
+    field: {
+      type: "string",
+      alias: "F",
+      description: "Typed parameter: true/false/null and integers are parsed (repeatable)",
+    },
     header: { type: "string", alias: "H", description: "Add a request header (repeatable)" },
     paginate: { type: "boolean", description: "Follow `next` until the result set is exhausted" },
     flatten: { type: "boolean", description: "With --paginate, concatenate every page's values" },
@@ -69,6 +75,7 @@ export default defineBbCommand<unknown>({
   },
   examples: [
     "bb api /repositories/{workspace}/{repo}/pullrequests",
+    "bb api /repositories/{workspace}/{repo}/pullrequests -X GET -f 'q=state=\"MERGED\"'",
     "bb api /user --jq .display_name",
     "bb api '/repositories/acme/api/pullrequests' --paginate --flatten",
   ],
@@ -79,10 +86,13 @@ export default defineBbCommand<unknown>({
       args["repo"] as string | undefined,
     );
 
-    const rawFields = asArray(args["raw-field"]).map(splitPair);
-    const typedFields = asArray(args["field"]).map(splitPair);
+    // Read from argv rather than the parsed args: citty collapses a repeated flag to
+    // its last value, which would silently drop every parameter but one.
+    const { rawArgs } = getRuntime();
+    const rawFields = collectRepeated(rawArgs, ["f", "raw-field"]).map(splitPair);
+    const typedFields = collectRepeated(rawArgs, ["F", "field"]).map(splitPair);
     const headers = Object.fromEntries(
-      asArray(args["header"]).map((header) => {
+      collectRepeated(rawArgs, ["H", "header"]).map((header) => {
         const separator = header.indexOf(":");
         if (separator === -1) {
           throw new UsageError(`Expected a header as name:value, got ${JSON.stringify(header)}`);
@@ -95,7 +105,8 @@ export default defineBbCommand<unknown>({
     const method = ((args["method"] as string | undefined) ??
       (hasFields ? "POST" : "GET")) as HttpMethod;
 
-    // On a read, fields become query parameters; on a write they become the body.
+    // Following gh: parameters imply a write unless the method is stated. On an
+    // explicit -X GET they become query parameters instead of a body.
     const isRead = method === "GET" || method === "HEAD";
     const query: QueryInit = isRead ? Object.fromEntries([...rawFields, ...typedFields]) : {};
     const body = isRead
@@ -148,6 +159,7 @@ export default defineBbCommand<unknown>({
     return {
       kind: "data",
       data: [data],
+      single: true,
       render: ([only], io) => io.out(JSON.stringify(only, null, 2)),
     };
   },

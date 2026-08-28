@@ -11,7 +11,20 @@ import { renderTemplate } from "./template/index.js";
  * makes output snapshot-testable without a terminal.
  */
 export type Result<T> =
-  | { kind: "data"; data: T[]; render: (data: T[], io: Io) => void }
+  | {
+      kind: "data";
+      data: T[];
+      render: (data: T[], io: Io) => void;
+      /**
+       * Emit the single element rather than a one-element array for `--json`, `--jq`
+       * and `--template`.
+       *
+       * A list command yields an array and a view command yields an object, matching
+       * `gh`. Without this, `bb pr view 42 --jq .title` would have to be written
+       * `.[0].title`, which nobody expects.
+       */
+      single?: boolean | undefined;
+    }
   | { kind: "text"; text: string }
   | { kind: "none" };
 
@@ -66,10 +79,12 @@ export const renderResult = async <T>(
         ? availableFields(fields)
         : parseFieldSelection(options.json, fields);
 
-  const payload =
+  const projected =
     selected === undefined || fields === undefined
       ? result.data
       : result.data.map((row) => pickFields(row, selected, fields));
+
+  const payload = result.single === true ? projected[0] : projected;
 
   if (options.template !== undefined) {
     io.out(

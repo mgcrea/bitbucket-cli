@@ -40,6 +40,7 @@ export default defineBbCommand<PullRequest>({
     return {
       kind: "data",
       data: [pr],
+      single: true,
       render: ([only], io) => {
         if (only === undefined) {
           return;

@@ -1,4 +1,5 @@
 import { defineBbCommand } from "../../command.js";
+import { readConfig } from "../../config/config.js";
 import { UsageError } from "../../errors.js";
 import { runGit } from "../../git/exec.js";
 import { parseRepoSpec } from "../../git/remote.js";
@@ -26,7 +27,11 @@ export default defineBbCommand<never>({
   args: {
     repository: { type: "positional", description: "workspace/repo", required: true },
     directory: { type: "positional", description: "Target directory", required: false },
-    protocol: { type: "string", alias: "p", description: "ssh or https (default: https)" },
+    protocol: {
+      type: "string",
+      alias: "p",
+      description: "ssh or https (default: the git_protocol setting, else https)",
+    },
     upstream: {
       type: "boolean",
       description: "Also add the parent repository as an `upstream` remote, if it is a fork",
@@ -40,7 +45,8 @@ export default defineBbCommand<never>({
     const bb = await client();
 
     const repo = await bb.repositories.get(ref);
-    const protocol = (args["protocol"] as string | undefined) ?? "https";
+    const protocol =
+      (args["protocol"] as string | undefined) ?? (await readConfig()).git_protocol ?? "https";
     if (protocol !== "https" && protocol !== "ssh") {
       throw new UsageError(`Unknown protocol ${JSON.stringify(protocol)}. Use ssh or https.`);
     }

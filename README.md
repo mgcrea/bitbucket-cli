@@ -99,6 +99,7 @@ so `bb pr merge` usually needs no argument.
 | `bb pipeline` | `list` · `view` · `log` · `run` · `stop` |
 | `bb browse` | open the repo, a pull request, a file or the pipelines page |
 | `bb alias` | `set` · `list` · `delete` |
+| `bb config` | `get` · `set` · `list` |
 | `bb completion` | `bash` · `zsh` · `fish` · `powershell` |
 | `bb api` | any endpoint, with `--paginate` / `--flatten` |
 
@@ -182,7 +183,8 @@ browser-based login on a headless box — pasting a token is the path.
 
 **Every listing is workspace-scoped.** `GET /workspaces` and the cross-workspace
 `GET /repositories` were both removed under CHANGE-2770, which is why `bb repo list`
-requires `-W` and why `bb workspace list` exists at all.
+needs a workspace — from `-W`, `BB_WORKSPACE`, your clone, or `default_workspace` — and
+why `bb workspace list` exists at all.
 
 Also worth knowing: repository, project and workspace access tokens are not tied to an
 Atlassian account, so `GET /user` fails for them. `bb` detects that before making a
@@ -266,6 +268,23 @@ bb alias set --shell bugs '!bb pr list --json title | grep -i bug'
 ```
 
 A built-in always wins, so an alias can never shadow `bb pr`.
+
+## Settings
+
+```bash
+bb config list                            # every setting, set or not
+bb config set default_workspace acme
+bb config set git_protocol ssh
+bb config set default_workspace ''         # empty unsets
+```
+
+`default_workspace` is the last resort for `bb repo list`, behind the `--workspace`
+flag, `BB_WORKSPACE`, and the workspace of the clone you are standing in. Inference
+beats it deliberately: inside a clone of `acme/api`, listing should show `acme` and not
+whatever default you set months ago.
+
+The key set is closed, so `bb config set defualt_workspace acme` is an error rather than
+a line in a file that never gets read.
 
 ## Shell completion
 

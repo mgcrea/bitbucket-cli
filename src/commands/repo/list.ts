@@ -39,7 +39,7 @@ export default defineBbCommand<RepositorySummary>({
     const bb = await client();
     // Required: the endpoint that listed repositories across every workspace was
     // removed by Atlassian and now returns 410.
-    const workspace = workspaceFromArgs(args);
+    const workspace = await workspaceFromArgs(args);
 
     const data = await collect(
       bb.repositories.list({

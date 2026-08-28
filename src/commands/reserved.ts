@@ -11,6 +11,7 @@ export const RESERVED_NAMES: readonly string[] = [
   "auth",
   "browse",
   "completion",
+  "config",
   "issue",
   "pipeline",
   "pr",

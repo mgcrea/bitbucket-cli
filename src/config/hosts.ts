@@ -7,11 +7,47 @@ import { hostsFile } from "./paths.js";
 
 export type StoredCredential = {
   kind: "api-token" | "access-token" | "oauth";
+  /** The access token for `oauth`; the long-lived secret for the other two kinds. */
   token: string;
   email?: string | undefined;
   username?: string | undefined;
   uuid?: string | undefined;
   expiresAt?: string | undefined;
+  // ---- `oauth` only ----------------------------------------------------------------
+  refreshToken?: string | undefined;
+  /**
+   * The generation before `refreshToken`.
+   *
+   * Atlassian does not document whether Bitbucket rotates refresh tokens on use. If it
+   * does, a crash between the token response and the write leaves the stored token
+   * already dead, and the only recovery is a full browser login. Keeping one previous
+   * generation covers exactly that window.
+   */
+  previousRefreshToken?: string | undefined;
+  /**
+   * What Bitbucket granted, read back off the token response.
+   *
+   * Recorded rather than requested: Bitbucket Cloud ignores the `scope` parameter on a
+   * grant, so scopes are whatever the OAuth consumer was configured with. The only way
+   * to know what a credential can do is to look at what came back.
+   */
+  scopes?: readonly string[] | undefined;
+  /**
+   * Which consumer issued this. A stored token is useless against a different
+   * `client_id`, and comparing up front turns a confusing `invalid_grant` into
+   * "these credentials belong to another consumer".
+   */
+  clientId?: string | undefined;
+  /**
+   * The consumer secret.
+   *
+   * Stored deliberately. Bitbucket Cloud does not support PKCE, so refreshing is a
+   * confidential-client operation and the secret is needed for the life of the login —
+   * not just during it. The alternative is demanding an env var on every invocation,
+   * which is worse than keeping it beside the refresh token it is useless without, in
+   * a file that is already 0600.
+   */
+  clientSecret?: string | undefined;
 };
 
 export type Hosts = Record<string, StoredCredential>;

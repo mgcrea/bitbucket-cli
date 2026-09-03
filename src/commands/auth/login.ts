@@ -1,4 +1,12 @@
 import { createApiTokenAuth } from "../../auth/api-token.js";
+import { waitForCallbackCode } from "../../auth/oauth-callback.js";
+import {
+  authorizeUrl,
+  createState,
+  DEFAULT_REDIRECT_URI,
+  exchangeCode,
+} from "../../auth/oauth-flow.js";
+import { createOAuthAuth, hostsTokenStore, toStored } from "../../auth/oauth.js";
 import { openBrowser } from "../../browser.js";
 import { createBitbucketClient } from "../../client/bitbucket-client.js";
 import { defineBbCommand } from "../../command.js";
@@ -11,6 +19,12 @@ import { createPrompter } from "../../prompt/index.js";
 import { getRuntime } from "../../runtime.js";
 
 const TOKEN_PAGE = "https://id.atlassian.com/manage-profile/security/api-tokens";
+
+const CONSUMER_HELP =
+  "A browser login needs an OAuth consumer, which you create once per workspace:\n" +
+  "  Workspace settings \u2192 Apps and features \u2192 OAuth consumers \u2192 Add consumer\n" +
+  `Set its callback URL to ${DEFAULT_REDIRECT_URI} and tick the permissions you want.\n` +
+  "Then pass --client-id, or set BB_OAUTH_CLIENT_ID and BB_OAUTH_CLIENT_SECRET.";
 
 const SCOPE_HELP =
   "Bitbucket needs an API token that carries Bitbucket scopes.\n" +
@@ -44,15 +58,90 @@ const verify = async (token: string, email: string | undefined): Promise<Verifie
 const isAuthFailure = (error: unknown): error is AuthenticationError | AuthorizationError =>
   error instanceof AuthenticationError || error instanceof AuthorizationError;
 
+/**
+ * The three-legged browser flow.
+ *
+ * There is no PKCE here, and its absence is not an oversight: Bitbucket Cloud does not
+ * support it. That makes this a confidential-client flow, so `state` is the only
+ * defence against a forged callback and the secret has to be kept for the life of the
+ * login rather than just for the exchange.
+ */
+const runWebLogin = async (consumer: {
+  clientId: string;
+  clientSecret: string;
+}): Promise<{ kind: "none" }> => {
+  const { io } = getRuntime();
+  const state = createState();
+  const url = authorizeUrl({
+    clientId: consumer.clientId,
+    state,
+    redirectUri: DEFAULT_REDIRECT_URI,
+  });
+
+  // The listener is started before the browser opens, so a fast redirect cannot arrive
+  // at a port that is not bound yet.
+  const codePromise = waitForCallbackCode({
+    state,
+    redirectUri: DEFAULT_REDIRECT_URI,
+    onListening: () => {
+      void openBrowser(url).then((opened) =>
+        io.info(
+          opened
+            ? "Opened your browser to authorize this consumer."
+            : `Could not open a browser. Visit:\n${url}`,
+        ),
+      );
+    },
+  });
+
+  const code = await codePromise;
+  const tokens = await exchangeCode({
+    clientId: consumer.clientId,
+    clientSecret: consumer.clientSecret,
+    code,
+    redirectUri: DEFAULT_REDIRECT_URI,
+  });
+
+  await writeCredential(toStored(undefined, tokens, consumer));
+
+  // Identity is fetched *after* storing, through the strategy that will be used from
+  // now on: it proves the stored credential actually works, and a failure here leaves a
+  // usable login rather than discarding one that was fine.
+  const auth = createOAuthAuth({ ...consumer, store: hostsTokenStore() });
+  const user = await createBitbucketClient({ auth }).users.current();
+  await writeCredential({
+    ...toStored(undefined, tokens, consumer),
+    username: user.username,
+    uuid: user.uuid,
+  });
+
+  io.info(`Logged in as ${user.displayName}.`);
+  // Reported rather than requested. Bitbucket ignores a `scope` parameter on the grant,
+  // so these are whatever the consumer was configured with — and the usual cause of a
+  // later 403 is a permission that was never ticked.
+  io.info(
+    tokens.scopes.length === 0
+      ? "Bitbucket reported no scopes for this consumer."
+      : `Granted scopes: ${tokens.scopes.join(", ")}`,
+  );
+  return { kind: "none" };
+};
+
 export default defineBbCommand<never>({
   meta: { name: "login", description: "Authenticate with Bitbucket" },
   args: {
     "with-token": { type: "boolean", description: "Read the token from stdin, without prompting" },
     email: { type: "string", alias: "e", description: "Your Atlassian account email" },
     "token-type": { type: "string", description: "api-token (default) or access-token" },
-    web: { type: "boolean", description: "Not yet implemented" },
+    web: { type: "boolean", description: "Authenticate in a browser via OAuth 2.0" },
+    "client-id": { type: "string", description: "OAuth consumer key (implies --web)" },
+    "client-secret": { type: "string", description: "OAuth consumer secret (implies --web)" },
   },
-  examples: ["bb auth login", "bb auth login --with-token --email me@example.com < token.txt"],
+  examples: [
+    "bb auth login",
+    "bb auth login --with-token --email me@example.com < token.txt",
+    "bb auth login --web --client-id KEY --client-secret SECRET",
+  ],
   async run({ args }) {
     const { io } = getRuntime();
 
@@ -63,11 +152,18 @@ export default defineBbCommand<never>({
       );
     }
 
-    if (args["web"] === true) {
-      throw new UsageError(
-        "`--web` is not implemented yet.",
-        `Run \`bb auth login\` and paste a token from ${TOKEN_PAGE} instead.`,
-      );
+    const clientId = (args["client-id"] as string | undefined) ?? process.env["BB_OAUTH_CLIENT_ID"];
+    const clientSecret =
+      (args["client-secret"] as string | undefined) ?? process.env["BB_OAUTH_CLIENT_SECRET"];
+
+    if (args["web"] === true || args["client-id"] !== undefined) {
+      if (clientId === undefined || clientSecret === undefined) {
+        throw new UsageError(
+          "A browser login needs an OAuth consumer key and secret.",
+          CONSUMER_HELP,
+        );
+      }
+      return runWebLogin({ clientId, clientSecret });
     }
 
     const flagEmail = args["email"] as string | undefined;

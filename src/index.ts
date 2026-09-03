@@ -65,7 +65,9 @@ export {
   createAccessTokenAuth,
   createAnonymousAuth,
   createApiTokenAuth,
+  oauthConsumerFromEnv,
   resolveAuthFromEnv,
+  strategyFor,
 } from "./auth/index.js";
 export type {
   AuthCapabilities,
@@ -74,6 +76,37 @@ export type {
   AuthStrategy,
   GitCredentials,
 } from "./auth/index.js";
+
+// OAuth 2.0 — the browser login, and the strategy that refreshes it
+export {
+  AUTHORIZE_URL,
+  authorizeUrl,
+  CALLBACK_TIMEOUT_MS,
+  createOAuthAuth,
+  createState,
+  DEFAULT_REDIRECT_URI,
+  exchangeCode,
+  hostsTokenStore,
+  OAuthError,
+  refreshTokens,
+  statesMatch,
+  TOKEN_URL,
+  toStored,
+  waitForCallbackCode,
+} from "./auth/index.js";
+export type {
+  AuthorizeUrlOptions,
+  ExchangeCodeOptions,
+  OAuthAuthOptions,
+  OAuthTokens,
+  OAuthTokenStore,
+  RefreshOptions,
+  WaitForCodeOptions,
+} from "./auth/index.js";
+
+// The credential store, so an embedder can read or replace a stored login
+export { deleteCredential, readCredential, writeCredential, DEFAULT_HOST } from "./config/hosts.js";
+export type { Hosts, StoredCredential } from "./config/hosts.js";
 
 // Errors
 export {

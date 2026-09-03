@@ -43,7 +43,13 @@ export type AuthStrategy = {
   authorize(context: { method: string; url: string }): Promise<AuthHeaders>;
   /** Called on a 401. Drops stale state; resolves true if a retry is worthwhile. */
   invalidate(): Promise<boolean>;
-  gitCredentials(): GitCredentials | undefined;
+  /**
+   * Async because an OAuth credential may have to refresh before it can answer. The
+   * other strategies hold a static secret and resolve immediately, but the git
+   * credential helper has to be able to await the one that does not — a cold OAuth
+   * cache returning `undefined` would make git fall back to prompting.
+   */
+  gitCredentials(): Promise<GitCredentials | undefined>;
   /** Which env var or file this came from, for `bb auth status`. */
   readonly source?: string | undefined;
 };

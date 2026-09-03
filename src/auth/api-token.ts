@@ -42,12 +42,13 @@ export const createApiTokenAuth = (options: ApiTokenAuthOptions): AuthStrategy =
     // An API token cannot be refreshed. Atlassian tokens are not viewable after
     // creation and cannot be edited, so recovery is create-a-new-one, not retry.
     invalidate: () => Promise.resolve(false),
-    gitCredentials: (): GitCredentials => ({
-      // Git over HTTPS wants the Bitbucket username, not the Atlassian email. The
-      // static form works for any account and avoids having to resolve one.
-      username: options.username ?? "x-bitbucket-api-token-auth",
-      password: options.token,
-    }),
+    gitCredentials: (): Promise<GitCredentials> =>
+      Promise.resolve({
+        // Git over HTTPS wants the Bitbucket username, not the Atlassian email. The
+        // static form works for any account and avoids having to resolve one.
+        username: options.username ?? "x-bitbucket-api-token-auth",
+        password: options.token,
+      }),
     ...(options.source === undefined ? {} : { source: options.source }),
   };
 };

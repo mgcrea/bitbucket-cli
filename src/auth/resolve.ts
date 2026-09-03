@@ -1,6 +1,7 @@
 import { createAccessTokenAuth } from "./access-token.js";
 import { createAnonymousAuth } from "./anonymous.js";
 import { createApiTokenAuth } from "./api-token.js";
+import { createOAuthAuth, hostsTokenStore } from "./oauth.js";
 import type { AuthStrategy } from "./types.js";
 
 const env = (name: string): string | undefined => {
@@ -38,7 +39,7 @@ export const resolveAuthFromEnv = (): AuthStrategy => {
 
   const token = read("BB_TOKEN", "BITBUCKET_TOKEN", "BB_API_TOKEN", "BITBUCKET_API_TOKEN");
   if (token === undefined) {
-    return createAnonymousAuth();
+    return oauthConsumerFromEnv() ?? createAnonymousAuth();
   }
 
   const declaredType = env("BB_TOKEN_TYPE");
@@ -53,5 +54,27 @@ export const resolveAuthFromEnv = (): AuthStrategy => {
     transport: email === undefined ? "bearer" : "basic",
     username: env("BB_USERNAME"),
     source: token.source,
+  });
+};
+
+/**
+ * An OAuth consumer configured in the environment.
+ *
+ * Ranked below every token variable on purpose: a consumer id is not itself a
+ * credential — it only says *which* stored login to use — so an explicitly supplied
+ * token must still win. Returns undefined rather than throwing when only one half of
+ * the pair is set, and `bb auth status` reports the gap.
+ */
+export const oauthConsumerFromEnv = (): AuthStrategy | undefined => {
+  const clientId = read("BB_OAUTH_CLIENT_ID", "BITBUCKET_OAUTH_CLIENT_ID");
+  const clientSecret = read("BB_OAUTH_CLIENT_SECRET", "BITBUCKET_OAUTH_CLIENT_SECRET");
+  if (clientId === undefined || clientSecret === undefined) {
+    return undefined;
+  }
+  return createOAuthAuth({
+    clientId: clientId.value,
+    clientSecret: clientSecret.value,
+    store: hostsTokenStore(),
+    source: clientId.source,
   });
 };

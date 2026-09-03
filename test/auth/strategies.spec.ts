@@ -66,10 +66,10 @@ describe("createApiTokenAuth", () => {
     expect(user.displayName).toBe("Olivier Louvignes");
   });
 
-  it("hands git the static token username, not the REST email", () => {
+  it("hands git the static token username, not the REST email", async () => {
     // REST authenticates as the email; git over HTTPS does not accept it. Conflating
     // the two produces a 403 on push that looks nothing like an auth-setup mistake.
-    expect(createApiTokenAuth({ token: "tok", email: "a@b.com" }).gitCredentials()).toEqual({
+    expect(await createApiTokenAuth({ token: "tok", email: "a@b.com" }).gitCredentials()).toEqual({
       username: "x-bitbucket-api-token-auth",
       password: "tok",
     });
@@ -83,8 +83,8 @@ describe("createAccessTokenAuth", () => {
     expect(auth.capabilities.canManageDeployKeys).toBe(false);
   });
 
-  it("uses x-token-auth for git", () => {
-    expect(createAccessTokenAuth({ token: "rt" }).gitCredentials()).toEqual({
+  it("uses x-token-auth for git", async () => {
+    expect(await createAccessTokenAuth({ token: "rt" }).gitCredentials()).toEqual({
       username: "x-token-auth",
       password: "rt",
     });

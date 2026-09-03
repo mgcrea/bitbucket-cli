@@ -171,3 +171,32 @@ describe("error mapping", () => {
     );
   });
 });
+
+describe("accept: text", () => {
+  it("hands back the body untouched rather than parsing it", async () => {
+    // The header used to be set without changing what happened to the reply, so a
+    // caller asking for a diff through `request()` got a ResponseParseError.
+    server.use(
+      http.get("https://api.bitbucket.org/2.0/x", () => HttpResponse.text("diff --git a/a b/a\n")),
+    );
+    const body = await new HttpClient().request<string>({ path: "/x", accept: "text" });
+    expect(body).toBe("diff --git a/a b/a\n");
+  });
+
+  it("still sends the matching Accept header", async () => {
+    let accept: string | null = null;
+    server.use(
+      http.get("https://api.bitbucket.org/2.0/x", ({ request }) => {
+        accept = request.headers.get("accept");
+        return HttpResponse.text("ok");
+      }),
+    );
+    await new HttpClient().request<string>({ path: "/x", accept: "text" });
+    expect(accept).toBe("text/plain, */*");
+  });
+
+  it("leaves the default JSON path parsing", async () => {
+    server.use(http.get("https://api.bitbucket.org/2.0/x", () => HttpResponse.json({ a: 1 })));
+    expect(await new HttpClient().request({ path: "/x" })).toEqual({ a: 1 });
+  });
+});

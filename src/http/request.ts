@@ -19,6 +19,11 @@ export type RequestSpec = {
   path: string;
   query?: QueryInit;
   body?: unknown;
+  /**
+   * What to do with the reply. `"json"` parses it; `"text"` hands back the body
+   * untouched, which is what the diff, patch and pipeline-log endpoints return.
+   * Also selects the `Accept` request header.
+   */
   accept?: "json" | "text";
   headers?: Readonly<Record<string, string>>;
   signal?: AbortSignal;

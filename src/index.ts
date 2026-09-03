@@ -22,6 +22,7 @@ export type { BitbucketClient, ClientOptions } from "./client/bitbucket-client.j
 
 // Domain types
 export type {
+  AddCommentInput,
   BranchRef,
   CommitRef,
   CommitStatus,
@@ -31,8 +32,12 @@ export type {
   Identity,
   MergeOutcome,
   MergeStrategy,
+  PipelineStatus,
+  PipelineStep,
+  PipelineSummary,
   PollOptions,
   PullRequest,
+  PullRequestComment,
   PullRequestRef,
   PullRequestState,
   PullRequestSummary,
@@ -43,21 +48,27 @@ export type {
   Reviewer,
   RevisionToken,
   UserRef,
+  WorkspaceSummary,
 } from "./flavor/domain.js";
 
 // The flavor seam, for a future Data Center implementation
 export type {
   CreatePullRequestInput,
   CreateRepositoryInput,
+  FieldsOption,
   Flavor,
   FlavorCapabilities,
+  ListPipelinesOptions,
   ListPullRequestsOptions,
   ListRepositoriesOptions,
   MergePullRequestInput,
+  PipelinesResource,
   PullRequestsResource,
   RepositoriesResource,
+  TriggerPipelineInput,
   UpdatePullRequestInput,
   UsersResource,
+  WorkspacesResource,
 } from "./flavor/types.js";
 
 // Auth
@@ -127,6 +138,16 @@ export {
   ValidationError,
 } from "./http/errors.js";
 export type { BitbucketErrorKind } from "./http/errors.js";
+
+/**
+ * Every path template, as a namespace.
+ *
+ * Exported for embedders reaching endpoints the `Flavor` resources do not model —
+ * commits, refs, source, diffs, projects. The templates carry Bitbucket's spelling
+ * inconsistencies (`/commits` vs `/commit`, `pipelines_config` vs `pipelines-config`),
+ * so building these by hand is how a caller earns a 404.
+ */
+export * as paths from "./cloud/paths.js";
 
 // HTTP surface, for the `bb api` escape hatch and for embedders
 export { HttpClient } from "./http/http-client.js";

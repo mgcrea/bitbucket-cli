@@ -113,6 +113,13 @@ export class HttpClient {
     if (text === "") {
       return { data: undefined as T, response };
     }
+    // A caller that asked for text gets text. Previously `accept: "text"` only set the
+    // request header and the body was still parsed, so asking for a diff or a log
+    // through `request()` set the right header and then threw ResponseParseError on the
+    // reply — a header that lied about what the function did.
+    if (spec.accept === "text") {
+      return { data: text as T, response };
+    }
     try {
       return { data: JSON.parse(text) as T, response };
     } catch (cause) {

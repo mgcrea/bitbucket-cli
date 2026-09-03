@@ -1,4 +1,5 @@
 import { defineBbCommand } from "../../command.js";
+import { readCredential } from "../../config/hosts.js";
 import type { FieldMap } from "../../output/fields.js";
 import { getRuntime } from "../../runtime.js";
 
@@ -11,6 +12,14 @@ type AuthStatus = {
   uuid?: string | undefined;
   hasUserIdentity: boolean;
   unavailable: string[];
+  /**
+   * What the OAuth consumer was granted. Reported, never requested: Bitbucket ignores
+   * a `scope` parameter on a grant, so this is fixed when the consumer is created and
+   * a missing permission here is the usual cause of a later 403.
+   */
+  scopes?: readonly string[] | undefined;
+  /** When the OAuth access token expires. Absent for the long-lived credentials. */
+  expiresAt?: string | undefined;
 };
 
 const CREDENTIAL_LABEL: Record<string, string> = {
@@ -37,6 +46,8 @@ const FIELDS: FieldMap<AuthStatus> = {
   uuid: { pick: (status) => status.uuid },
   hasUserIdentity: { pick: (status) => status.hasUserIdentity },
   unavailable: { pick: (status) => status.unavailable },
+  scopes: { pick: (status) => status.scopes },
+  expiresAt: { pick: (status) => status.expiresAt },
 };
 
 export default defineBbCommand<AuthStatus>({
@@ -48,6 +59,9 @@ export default defineBbCommand<AuthStatus>({
     const bb = await client();
     const identity = await bb.users.whoami();
     const capabilities = bb.auth.capabilities;
+    // Read straight from the store rather than the strategy: the granted scopes are a
+    // property of the stored login, and the strategy interface has nowhere to put them.
+    const oauth = bb.auth.kind === "oauth" ? await readCredential() : undefined;
 
     const status: AuthStatus = {
       host: "bitbucket.org",
@@ -58,6 +72,8 @@ export default defineBbCommand<AuthStatus>({
       uuid: identity.kind === "user" ? identity.user.uuid : undefined,
       hasUserIdentity: capabilities.hasUserIdentity,
       unavailable: capabilities.hasUserIdentity ? [] : IDENTITY_DEPENDENT,
+      scopes: oauth?.scopes,
+      expiresAt: oauth?.expiresAt,
     };
 
     return {
@@ -85,6 +101,20 @@ export default defineBbCommand<AuthStatus>({
           io.out(`    Source:     ${only.source}`);
         }
         // Reporting the credential TYPE matters because capability differs per type.
+        if (only.scopes !== undefined) {
+          io.out(
+            `    Scopes:     ${only.scopes.length === 0 ? io.style("yellow", "none reported") : only.scopes.join(", ")}`,
+          );
+        }
+        if (only.expiresAt !== undefined) {
+          const remaining = Date.parse(only.expiresAt) - Date.now();
+          io.out(
+            `    Expires:    ${only.expiresAt}` +
+              (Number.isFinite(remaining)
+                ? ` (${remaining <= 0 ? "expired, refreshes on next use" : `in ${Math.round(remaining / 60_000)}m`})`
+                : ""),
+          );
+        }
         if (only.hasUserIdentity) {
           io.out(`    Identity:   yes${only.uuid === undefined ? "" : ` (${only.uuid})`}`);
         } else {

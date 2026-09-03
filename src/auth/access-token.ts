@@ -24,9 +24,10 @@ export const createAccessTokenAuth = (options: AccessTokenAuthOptions): AuthStra
   },
   authorize: () => Promise.resolve({ authorization: `Bearer ${options.token}` }),
   invalidate: () => Promise.resolve(false),
-  gitCredentials: (): GitCredentials => ({
-    username: "x-token-auth",
-    password: options.token,
-  }),
+  gitCredentials: (): Promise<GitCredentials> =>
+    Promise.resolve({
+      username: "x-token-auth",
+      password: options.token,
+    }),
   ...(options.source === undefined ? {} : { source: options.source }),
 });

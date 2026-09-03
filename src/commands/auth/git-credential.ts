@@ -62,7 +62,7 @@ export default defineBbCommand<never>({
       return { kind: "none" };
     }
 
-    const credentials = (await resolveAuth()).gitCredentials();
+    const credentials = await (await resolveAuth()).gitCredentials();
     if (credentials === undefined) {
       return { kind: "none" };
     }

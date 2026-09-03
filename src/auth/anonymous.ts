@@ -9,5 +9,5 @@ export const createAnonymousAuth = (): AuthStrategy => ({
   },
   authorize: () => Promise.resolve({}),
   invalidate: () => Promise.resolve(false),
-  gitCredentials: () => undefined,
+  gitCredentials: () => Promise.resolve(undefined),
 });
